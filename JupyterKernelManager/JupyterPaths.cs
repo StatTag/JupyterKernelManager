@@ -11,7 +11,7 @@ namespace JupyterKernelManager
     {
         private Dictionary<string, string> tempDirectories = new Dictionary<string, string>();
 
-        public List<string> GetPath()
+        public List<string> GetPath(string subdirs = "")
         {
             var paths = new List<string>();
 
@@ -27,6 +27,14 @@ namespace JupyterKernelManager
 
             // finally, system
             paths.Add(GetSystemPath());
+
+            if (!string.IsNullOrWhiteSpace(subdirs))
+            {
+                for (int index = 0; index < paths.Count; index++)
+                {
+                    paths[index] = Path.Combine(paths[index], subdirs);
+                }
+            }
 
             return paths;
         }

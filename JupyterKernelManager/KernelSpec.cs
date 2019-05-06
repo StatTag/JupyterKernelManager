@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -13,6 +14,8 @@ namespace JupyterKernelManager
     /// </summary>
     public class KernelSpec
     {
+        public const string KERNEL_DEFINITION_FILE = "kernel.json";
+
         /// <summary>
         /// Jupyter kernelspec argv parameter
         /// </summary>
@@ -52,6 +55,13 @@ namespace JupyterKernelManager
         public IDictionary<string, string> Metadata { get; set; }
 
         /// <summary>
+        /// Not created in the actual rendered JSON, but tracks the location where the kernelspec
+        /// was read from.
+        /// </summary>
+        [JsonIgnore]
+        public string ResourceDirectory { get; set; }
+
+        /// <summary>
         /// Deserialize a JSON string to create a KernelSpec object
         /// </summary>
         /// <param name="data"></param>
@@ -63,6 +73,20 @@ namespace JupyterKernelManager
                 throw new ArgumentNullException("The JSON data string cannot be null or empty");
             }
             return JsonConvert.DeserializeObject<KernelSpec>(jsonData);
+        }
+
+        /// <summary>
+        /// Create a KernelSpec object by reading kernel.json
+        /// </summary>
+        /// <param name="resourceDir">The path to the *directory* containing kernel.json.</param>
+        /// <returns></returns>
+        public static KernelSpec FromResourceDir(string resourceDir)
+        {
+            var kernelFile = Path.Combine(resourceDir, KERNEL_DEFINITION_FILE);
+            var jsonData = File.ReadAllText(kernelFile, Encoding.UTF8);
+            var spec = DeserializeJson(jsonData);
+            spec.ResourceDirectory = resourceDir;  // This is not in the original implementation, but we are adding
+            return spec;
         }
     }
 }

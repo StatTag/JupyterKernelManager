@@ -7,6 +7,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JupyterKernelManager", "Jup
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tests", "Tests\Tests.csproj", "{B36AA8DA-49D0-4158-9E0C-55F770476280}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LocalTest", "LocalTest\LocalTest.csproj", "{3DA6C89F-EC60-4F4B-BA39-9803E0C5163B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{B36AA8DA-49D0-4158-9E0C-55F770476280}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B36AA8DA-49D0-4158-9E0C-55F770476280}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B36AA8DA-49D0-4158-9E0C-55F770476280}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3DA6C89F-EC60-4F4B-BA39-9803E0C5163B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3DA6C89F-EC60-4F4B-BA39-9803E0C5163B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3DA6C89F-EC60-4F4B-BA39-9803E0C5163B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3DA6C89F-EC60-4F4B-BA39-9803E0C5163B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

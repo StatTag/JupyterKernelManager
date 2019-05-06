@@ -55,6 +55,7 @@
     <Compile Include="KernelSpecTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="JsonDictionaryConverterTests.cs" />
+    <Compile Include="KernelSpecManagerTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
