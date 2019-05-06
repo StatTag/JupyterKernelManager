@@ -120,11 +120,10 @@ namespace JupyterKernelManager
                     continue;
                 }
 
-                int dirLen = ((kernelDir.EndsWith("\\")) ? kernelDir.Length : kernelDir.Length + 1);
-                var kernelName = directoryPath.Remove(0, kernelDir.Length + 1).ToLower();
+                var kernelName = GetKernelNameFromDir(directoryPath, kernelDir);
                 if (!IsValidKernelName(kernelName))
                 {
-                    // Logging?
+                    // TODO: Logging?
                     string.Format("Invalid kernelspec directory name ({0}): Kernel names can only contain ASCII letters and numbers and these separators: - . _ (hyphen, period, and underscore).",
                         kernelName);
                 }
@@ -133,6 +132,19 @@ namespace JupyterKernelManager
             }
 
             return kernels;
+        }
+
+        /// <summary>
+        /// Create a name for the kernel given the directory we found it at
+        /// </summary>
+        /// <param name="kernelDir">The full path of the kernel</param>
+        /// <param name="baseKernelDir">The base path where we were looking for kernels (where kernelDir is located)</param>
+        /// <returns></returns>
+        public string GetKernelNameFromDir(string kernelDir, string baseKernelDir)
+        {
+            int dirLen = ((baseKernelDir.EndsWith("\\") || baseKernelDir.EndsWith("/")) ? baseKernelDir.Length : baseKernelDir.Length + 1);
+            var kernelName = kernelDir.Remove(0, dirLen).ToLower();
+            return kernelName;
         }
 
         /// <summary>

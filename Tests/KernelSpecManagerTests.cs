@@ -32,5 +32,20 @@ namespace Tests
             Assert.IsTrue(manager.IsValidKernelName("a"));
             Assert.IsTrue(manager.IsValidKernelName("a_0_-.Z"));
         }
+
+        [TestMethod]
+        public void GetKernelNameFromDir_NoSlashes()
+        {
+            var manager = new KernelSpecManager();
+            Assert.AreEqual("test-kernel", manager.GetKernelNameFromDir("C:\\test\\kernels\\test-kernel", "C:\\test\\kernels"));
+        }
+
+        [TestMethod]
+        public void GetKernelNameFromDir_Slashes()
+        {
+            var manager = new KernelSpecManager();
+            Assert.AreEqual("test-kernel", manager.GetKernelNameFromDir("C:\\test\\kernels\\test-kernel", "C:\\test\\kernels\\"));
+            Assert.AreEqual("test-kernel", manager.GetKernelNameFromDir("C:/test/kernels/test-kernel", "C:/test/kernels/"));
+        }
     }
 }
