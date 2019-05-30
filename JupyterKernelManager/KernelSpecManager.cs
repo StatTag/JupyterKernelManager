@@ -86,6 +86,58 @@ namespace JupyterKernelManager
         }
 
         /// <summary>
+        /// Returns a KernelSpec instance for the given kernel name.
+        /// </summary>
+        /// <param name="kernelName"></param>
+        /// <returns></returns>
+        public KernelSpec GetKernelSpec(string kernelName)
+        {
+            if (!IsValidKernelName(kernelName))
+            {
+                throw new ArgumentOutOfRangeException("The kernelspec name is invalid");
+            }
+
+            var resourceDir = FindSpecDirectory(kernelName.ToLower());
+            if (string.IsNullOrWhiteSpace(resourceDir))
+            {
+                throw new NoSuchKernelException(kernelName);
+            }
+
+            return GetKernelSpecByName(kernelName, resourceDir);
+        }
+
+        /// <summary>
+        /// Find the resource directory of a named kernel spec
+        /// </summary>
+        /// <param name="kernelName"></param>
+        /// <returns></returns>
+        private string FindSpecDirectory(string kernelName)
+        {
+            foreach (var kernelDir in KernelDirectories)
+            {
+                try
+                {
+                    var dirs = Directory.GetDirectories(kernelDir);
+                    foreach (var dir in dirs)
+                    {
+                        var dirKernelName = GetKernelNameFromDir(dir, kernelDir);
+                        if (dirKernelName.ToLower().Equals(kernelName) && IsKernelDir(dir))
+                        {
+                            return dir;
+                        }
+                    }
+                }
+                catch (DirectoryNotFoundException exc)
+                {
+                    // We want to silently continue if a directory wasn't found - this can happen
+                    continue;
+                }
+            }
+
+            throw new NoSuchKernelException(kernelName);
+        }
+
+        /// <summary>
         /// Return a KernelSpec instance for a given kernelName and resourceDir
         /// </summary>
         /// <param name="kernelName"></param>

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.IO;
 using JupyterKernelManager;
 
 namespace LocalTest
@@ -17,6 +18,10 @@ namespace LocalTest
             {
                 Console.WriteLine("Found {0} at {1}", kernelSpec.Key, kernelSpec.Value.ResourceDirectory);
             }
+
+            Console.WriteLine("Launching first kernel");
+            var kernelManager = new KernelManager(kernelSpecs.First().Key);
+            kernelManager.StartKernel();
         }
     }
 }
