@@ -16,9 +16,12 @@ namespace JupyterKernelManager
         /// </summary>
         private string KernelName { get; set; }
 
+        private KernelManager Manager { get; set; }
+
         public KernelApp(string kernelName)
         {
             KernelName = kernelName;
+            Manager = new KernelManager(kernelName);
         }
     }
 }

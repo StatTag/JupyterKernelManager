@@ -7,6 +7,8 @@ using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using Newtonsoft.Json;
+using NetMQ;
+using NetMQ.Sockets;
 
 namespace JupyterKernelManager
 {
@@ -14,6 +16,12 @@ namespace JupyterKernelManager
     {
         public const string TCP_TRANSPORT = "tcp";
         public const string LOCALHOST = "127.0.0.1";
+
+        public const string SHELL_CHANNEL = "shell";
+        public const string IOPUB_CHANNEL = "iopub";
+        public const string STDIN_CHANNEL = "stdin";
+        public const string HB_CHANNEL = "hb";
+        public const string CONTROL_CHANNEL = "control";
 
         [JsonIgnore]
         private static readonly IPEndPoint DefaultLoopbackEndpoint = new IPEndPoint(IPAddress.Loopback, port: 0);
@@ -209,6 +217,111 @@ namespace JupyterKernelManager
         public bool IsLocalIp()
         {
             return string.Equals(LOCALHOST, IpAddress);
+        }
+
+        /// <summary>
+        /// Make a ZeroMQ URL for a given channel.
+        /// </summary>
+        /// <param name="channel"></param>
+        /// <returns></returns>
+        public string MakeUrl(string channel)
+        {
+            var port = GetPortForChannel(channel);
+            if (Transport.Equals(TCP_TRANSPORT))
+            {
+                return string.Format("tcp://{0}:{1}", IpAddress, port);
+            }
+            else
+            {
+                return string.Format("{0}://{1}-{2}", Transport, IpAddress, port);
+            }
+        }
+
+        /// <summary>
+        ///  Utility function to get the assigned port for a given (named) channel.
+        /// </summary>
+        /// <param name="channel"></param>
+        /// <returns></returns>
+        private int GetPortForChannel(string channel)
+        {
+            switch (channel.ToLower())
+            {
+                case SHELL_CHANNEL:
+                    return ShellPort;
+                case IOPUB_CHANNEL:
+                    return IoPubPort;
+                case STDIN_CHANNEL:
+                    return StdinPort;
+                case HB_CHANNEL:
+                    return HbPort;
+                case CONTROL_CHANNEL:
+                    return ControlPort;
+            }
+
+            throw new InvalidChannelException(string.Format("{0} is not a valid channel identifier", channel));
+        }
+
+        /// <summary>
+        /// Create a zmq Socket and connect it to the kernel.
+        /// </summary>
+        /// <returns></returns>
+        private NetMQSocket CreateConnectedSocket(string channel, NetMQSocket socket)
+        {
+            var url = MakeUrl(channel);
+            // set linger to 1s to prevent hangs at exit
+            socket.Options.Linger = TimeSpan.FromSeconds(1);
+            socket.Connect(url);
+            return socket;
+        }
+
+        /// <summary>
+        /// Return zmq Socket connected to the IOPub channel
+        /// </summary>
+        /// <returns></returns>
+        public SubscriberSocket ConnectIoPub()
+        {
+            var socket = CreateConnectedSocket(IOPUB_CHANNEL, new SubscriberSocket()) as SubscriberSocket;
+            return socket;
+        }
+
+        /// <summary>
+        /// Return zmq Socket connected to the Shell channel
+        /// </summary>
+        /// <returns></returns>
+        public DealerSocket ConnectShell()
+        {
+            var socket = CreateConnectedSocket(SHELL_CHANNEL, new DealerSocket()) as DealerSocket;
+            return socket;
+        }
+
+        /// <summary>
+        /// Return zmq Socket connected to the StdIn channel
+        /// </summary>
+        /// <returns></returns>
+        public DealerSocket ConnectStdin()
+        {
+            var socket = CreateConnectedSocket(STDIN_CHANNEL, new DealerSocket()) as DealerSocket;
+            return socket;
+        }
+
+        /// <summary>
+        /// Return zmq Socket connected to the Heartbeat channel
+        /// </summary>
+        /// <returns></returns>
+        public RequestSocket ConnectHb()
+        {
+            var socket = CreateConnectedSocket(HB_CHANNEL, new RequestSocket()) as RequestSocket;
+            return socket;
+        }
+
+        /// <summary>
+        /// Return zmq Socket connected to the Control channel
+        /// </summary>
+        /// <returns></returns>
+        public DealerSocket ConnectControl()
+        {
+            var socket = CreateConnectedSocket(CONTROL_CHANNEL, new DealerSocket()) as DealerSocket;
+            return socket;
         }
     }
 }

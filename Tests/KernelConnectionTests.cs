@@ -42,5 +42,54 @@ namespace Tests
             Assert.AreEqual(KernelConnection.TCP_TRANSPORT, connection.Transport);
             Assert.AreEqual(KernelConnection.LOCALHOST, connection.IpAddress);
         }
+
+        [TestMethod]
+        public void MakeUrl_InvalidChannel()
+        {
+            var connection = new KernelConnection();
+            Assert.ThrowsException<InvalidChannelException>(() => connection.MakeUrl("invalid"));
+        }
+
+        [TestMethod]
+        public void MakeUrl_Tcp()
+        {
+            var connection = new KernelConnection()
+            {
+                Transport = KernelConnection.TCP_TRANSPORT,
+                IpAddress = "1.2.3.4",
+                ShellPort = 1234,
+                IoPubPort = 1235,
+                StdinPort = 1236,
+                HbPort = 1237,
+                ControlPort = 1238
+            };
+            Assert.AreEqual("tcp://1.2.3.4:1234", connection.MakeUrl("shell"));
+            Assert.AreEqual("tcp://1.2.3.4:1234", connection.MakeUrl("ShElL"));  // Case doesn't matter
+            Assert.AreEqual("tcp://1.2.3.4:1235", connection.MakeUrl("iopub"));
+            Assert.AreEqual("tcp://1.2.3.4:1236", connection.MakeUrl("stdin"));
+            Assert.AreEqual("tcp://1.2.3.4:1237", connection.MakeUrl("hb"));
+            Assert.AreEqual("tcp://1.2.3.4:1238", connection.MakeUrl("control"));
+        }
+
+        [TestMethod]
+        public void MakeUrl_NonTcp()
+        {
+            var connection = new KernelConnection()
+            {
+                Transport = "file",
+                IpAddress = "1.2.3.4",
+                ShellPort = 1234,
+                IoPubPort = 1235,
+                StdinPort = 1236,
+                HbPort = 1237,
+                ControlPort = 1238
+            };
+            Assert.AreEqual("file://1.2.3.4-1234", connection.MakeUrl("shell"));
+            Assert.AreEqual("file://1.2.3.4-1234", connection.MakeUrl("ShElL"));  // Case doesn't matter
+            Assert.AreEqual("file://1.2.3.4-1235", connection.MakeUrl("iopub"));
+            Assert.AreEqual("file://1.2.3.4-1236", connection.MakeUrl("stdin"));
+            Assert.AreEqual("file://1.2.3.4-1237", connection.MakeUrl("hb"));
+            Assert.AreEqual("file://1.2.3.4-1238", connection.MakeUrl("control"));
+        }
     }
 }

@@ -26,8 +26,8 @@ namespace JupyterKernelManager
         private KernelSpec Spec { get; set; }
 
         private KernelConnection ConnectionInformation { get; set; }
-
         private List<string> KernelCmd { get; set; }
+        private Process Kernel { get; set; }
 
         private Dictionary<string, List<string>> LaunchArgs { get; set; }
         private Dictionary<string, string> ExtraEnvironment { get; set; }
@@ -106,7 +106,7 @@ namespace JupyterKernelManager
                 env = MergeDicts(env, ExtraEnvironment);
             }
 
-            LaunchKernel(kernelCmd, env, kw);
+            Kernel = LaunchKernel(kernelCmd, env, kw);
             //StartRestarter();
             //ConnectControlSocket();
         }
@@ -192,6 +192,33 @@ namespace JupyterKernelManager
             }
 
             return dictionary;
+        }
+
+        /// <summary>
+        /// Is the kernel process still running?
+        /// </summary>
+        /// <returns></returns>
+        public bool IsAlive
+        {
+            get { return HasKernel && !Kernel.HasExited; }
+        }
+
+        /// <summary>
+        /// Has a kernel been started that we are managing.
+        /// </summary>
+        /// <returns></returns>
+        public bool HasKernel
+        {
+            get { return Kernel != null; }
+        }
+
+        /// <summary>
+        /// Create a Client connected to our Kernel
+        /// </summary>
+        /// <returns></returns>
+        public KernelClient CreateClient()
+        {
+            return new KernelClient();
         }
     }
 }

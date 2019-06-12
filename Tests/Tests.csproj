@@ -57,6 +57,7 @@
     <Compile Include="JsonDictionaryConverterTests.cs" />
     <Compile Include="KernelSpecManagerTests.cs" />
     <Compile Include="KernelConnectionTests.cs" />
+    <Compile Include="SessionTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
