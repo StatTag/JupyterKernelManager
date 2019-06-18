@@ -39,6 +39,7 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="Microsoft.CSharp" />
     <Reference Include="Microsoft.VisualStudio.TestPlatform.TestFramework, Version=14.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <HintPath>..\packages\MSTest.TestFramework.1.4.0\lib\net45\Microsoft.VisualStudio.TestPlatform.TestFramework.dll</HintPath>
     </Reference>
@@ -58,6 +59,7 @@
     <Compile Include="KernelSpecManagerTests.cs" />
     <Compile Include="KernelConnectionTests.cs" />
     <Compile Include="SessionTests.cs" />
+    <Compile Include="MessageTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

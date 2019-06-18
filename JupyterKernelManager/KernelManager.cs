@@ -25,7 +25,7 @@ namespace JupyterKernelManager
         private KernelSpecManager SpecManager { get; set; }
         private KernelSpec Spec { get; set; }
 
-        private KernelConnection ConnectionInformation { get; set; }
+        public KernelConnection ConnectionInformation { get; set; }
         private List<string> KernelCmd { get; set; }
         private Process Kernel { get; set; }
 
@@ -218,7 +218,7 @@ namespace JupyterKernelManager
         /// <returns></returns>
         public KernelClient CreateClient()
         {
-            return new KernelClient();
+            return new KernelClient(this);
         }
     }
 }

@@ -1,6 +1,8 @@
-﻿using System;
+﻿using JupyterKernelManager.Protocol;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Dynamic;
 using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
@@ -209,24 +211,24 @@ namespace JupyterKernelManager
         /// format, which is a list of message parts.
         /// </summary>
         /// <param name="msgType"></param>
-        public dynamic Msg(string msgType)
+        public Message Msg(string msgType)
         {
-            dynamic msg = new DynamicDictionary<string>();
+            dynamic msg = new ExpandoObject();
             msg.header = MsgHeader(MsgId, msgType, Username, SessionId);
             msg.msg_id = msg.header.msg_id;
             msg.msg_type = msg.header.msg_type;
             // TODO msg.parent_header = {} if parent is None else extract_header(parent)
             // TODO msg['content'] = {} if content is None else content
             msg.metadata = Metadata;
-            return msg;
+            return new Message(msg);
         }
 
         /// <summary>
         /// Create a new message header.
         /// </summary>
-        public object MsgHeader(string messageId, string messageType, string username, string sessionId)
+        public dynamic MsgHeader(string messageId, string messageType, string username, string sessionId)
         {
-            dynamic header = new DynamicDictionary<string>();
+            dynamic header = new ExpandoObject();
             header.date = DateTime.UtcNow;
             header.version = Version.ProtocolVersion;
             header.msg_id = messageId;

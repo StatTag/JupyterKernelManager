@@ -52,6 +52,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DynamicDictionary.cs" />
+    <Compile Include="Constants.cs" />
     <Compile Include="HeartbeatChannel.cs" />
     <Compile Include="InvalidChannelException.cs" />
     <Compile Include="JupyterPaths.cs" />
@@ -62,8 +63,10 @@
     <Compile Include="KernelSpec.cs" />
     <Compile Include="JsonDictionaryConverter.cs" />
     <Compile Include="KernelSpecManager.cs" />
+    <Compile Include="Message.cs" />
     <Compile Include="NoSuchKernelException.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Protocol.cs" />
     <Compile Include="Session.cs" />
     <Compile Include="Version.cs" />
     <Compile Include="WinApi.cs" />

@@ -33,9 +33,9 @@ namespace Tests
         public void Msg()
         {
             Session session = new Session();
-            dynamic msg = session.Msg("test");
-            Assert.AreEqual("test", msg.msg_type);
-            Assert.IsFalse(string.IsNullOrWhiteSpace(msg.msg_id));
+            var message = session.Msg("test");
+            Assert.AreEqual("test", message.Raw.msg_type);
+            Assert.IsFalse(string.IsNullOrWhiteSpace(message.Raw.msg_id));
         }
     }
 }

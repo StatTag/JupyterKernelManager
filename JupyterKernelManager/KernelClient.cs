@@ -1,4 +1,5 @@
-﻿using System;
+﻿using JupyterKernelManager.Protocol;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -24,11 +25,19 @@ namespace JupyterKernelManager
     {
         private KernelManager Parent { get; set; }
         private KernelConnection Connection { get; set; }
+        private Session ClientSession { get; set; }
 
         private ZMQSocketChannel _ShellChannel { get; set; }
         private ZMQSocketChannel _IoPubChannel { get; set; }
         private ZMQSocketChannel _StdInChannel { get; set; }
         private HeartbeatChannel _HbChannel { get; set; }
+
+        public KernelClient(KernelManager parent)
+        {
+            this.ClientSession = new Session();
+            this.Parent = parent;
+            this.Connection = parent.ConnectionInformation;
+        }
 
         /// <summary>
         /// Flag for whether execute requests should be allowed to call raw_input
@@ -227,11 +236,9 @@ namespace JupyterKernelManager
         public string KernelInfo()
         {
             // TODO - Implement
-            //var message = Session.Msg("kernel_info_request");
-            //_ShellChannel.Send(message);
-            //return message["header"]["msg_id"];
-
-            return null;
+            var message = ClientSession.Msg(MessageType.KernelInfoRequest);
+            _ShellChannel.Send(message);
+            return message.Raw.header.msg_id;
         }
 
         // TODO - https://github.com/jupyter/jupyter_client/blob/1cec38633c049d916f5e65d4d74129737ee9851e/jupyter_client/client.py#L200

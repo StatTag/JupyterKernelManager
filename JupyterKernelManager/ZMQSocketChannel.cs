@@ -1,4 +1,5 @@
-﻿using NetMQ;
+﻿using JupyterKernelManager.Protocol;
+using NetMQ;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -44,6 +45,31 @@ namespace JupyterKernelManager
 
             Socket.Close();
             Socket = null;
+        }
+
+        public string Send(Message message)
+        {
+            //var msg = new NetMQMessage(new List<byte[]>() { message.Serialize() });
+            NetMQMessage msg = new NetMQMessage();
+            //msg.AppendEmptyFrame();
+            msg.Append("59e41542-9a1b3708330a10e913e38765");
+            msg.Append("<IDS|MSG>");
+            msg.AppendEmptyFrame();
+            msg.Append(message.Serialize());
+            msg.Append(Encoding.ASCII.GetBytes("{}"));
+            msg.Append(Encoding.ASCII.GetBytes("{}"));
+            msg.Append(Encoding.ASCII.GetBytes("{'test':'test'}"));
+            Socket.SendMultipartMessage(msg);
+            //Socket.SendMoreFrameEmpty();
+            //Socket.SendMoreFrame(Encoding.ASCII.GetBytes("<IDS|MSG>"));
+            //Socket.SendMoreFrameEmpty();
+            //Socket.SendMoreFrame(message.Serialize());
+            //Socket.SendMoreFrameEmpty();
+            //Socket.SendMoreFrameEmpty();
+            //Socket.SendFrameEmpty();
+
+            // TODO: Finish implementation
+            return "";
         }
     }
 }
