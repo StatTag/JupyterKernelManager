@@ -204,37 +204,35 @@ namespace JupyterKernelManager
         }
 
         /// <summary>
-        /// Return the nested message dict.
+        /// Create a new message of a specific type
         /// 
         /// This format is different from what is sent over the wire. The
         /// serialize/deserialize methods converts this nested message dict to the wire
         /// format, which is a list of message parts.
         /// </summary>
         /// <param name="msgType"></param>
-        public Message Msg(string msgType)
+        public Message CreateMessage(string msgType)
         {
-            dynamic msg = new ExpandoObject();
-            msg.header = MsgHeader(MsgId, msgType, Username, SessionId);
-            msg.msg_id = msg.header.msg_id;
-            msg.msg_type = msg.header.msg_type;
-            // TODO msg.parent_header = {} if parent is None else extract_header(parent)
-            // TODO msg['content'] = {} if content is None else content
-            msg.metadata = Metadata;
-            return new Message(msg);
+            var message = new Message(this);
+            message.Header = CreateMessageHeader(MsgId, msgType, Username, SessionId);
+            message.Metadata = Metadata;
+            return message;
         }
 
         /// <summary>
         /// Create a new message header.
         /// </summary>
-        public dynamic MsgHeader(string messageId, string messageType, string username, string sessionId)
+        public MessageHeader CreateMessageHeader(string messageId, string messageType, string username, string sessionId)
         {
-            dynamic header = new ExpandoObject();
-            header.date = DateTime.UtcNow;
-            header.version = Version.ProtocolVersion;
-            header.msg_id = messageId;
-            header.msg_type = messageType;
-            header.username = username;
-            header.session = sessionId;
+            var header = new MessageHeader()
+            {
+                Date = DateTime.UtcNow,
+                ProtocolVersion = Version.ProtocolVersion,
+                Id = messageId,
+                MessageType = messageType,
+                Username = username,
+                Session = sessionId
+            };
             return header;
         }
     }

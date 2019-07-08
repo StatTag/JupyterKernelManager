@@ -14,21 +14,6 @@ namespace LocalTest
     {
         static void Main(string[] args)
         {
-            //NetMQMessage msg = new NetMQMessage();
-            ////msg.AppendEmptyFrame();
-            //msg.Append("<IDS|MSG>");
-            //msg.AppendEmptyFrame();
-            //msg.Append(Encoding.ASCII.GetBytes("{}"));
-            //msg.Append(Encoding.ASCII.GetBytes("{}"));
-            //msg.Append(Encoding.ASCII.GetBytes("{}"));
-            //msg.Append(Encoding.ASCII.GetBytes("{}"));
-
-            //var socket = new DealerSocket();
-            //socket.Options.Linger = TimeSpan.FromSeconds(1);
-            //socket.Connect("tcp://127.0.0.1:51382");
-
-            //socket.SendMultipartMessage(msg);
-
             var manager = new KernelSpecManager();
             var kernelSpecs = manager.GetAllSpecs();
             //foreach (var kernelSpec in kernelSpecs)

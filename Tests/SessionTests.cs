@@ -30,12 +30,12 @@ namespace Tests
         }
 
         [TestMethod]
-        public void Msg()
+        public void CreateMessage()
         {
             Session session = new Session();
-            var message = session.Msg("test");
-            Assert.AreEqual("test", message.Raw.msg_type);
-            Assert.IsFalse(string.IsNullOrWhiteSpace(message.Raw.msg_id));
+            var message = session.CreateMessage("test");
+            Assert.AreEqual("test", message.Header.MessageType);
+            Assert.IsFalse(string.IsNullOrWhiteSpace(message.Header.Id));
         }
     }
 }

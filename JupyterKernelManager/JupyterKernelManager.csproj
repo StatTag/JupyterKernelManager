@@ -51,6 +51,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Cryptography.cs" />
     <Compile Include="DynamicDictionary.cs" />
     <Compile Include="Constants.cs" />
     <Compile Include="HeartbeatChannel.cs" />

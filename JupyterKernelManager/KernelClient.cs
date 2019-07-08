@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace JupyterKernelManager
@@ -236,9 +237,9 @@ namespace JupyterKernelManager
         public string KernelInfo()
         {
             // TODO - Implement
-            var message = ClientSession.Msg(MessageType.KernelInfoRequest);
+            var message = ClientSession.CreateMessage(MessageType.KernelInfoRequest);
             _ShellChannel.Send(message);
-            return message.Raw.header.msg_id;
+            return message.Header.Id;
         }
 
         // TODO - https://github.com/jupyter/jupyter_client/blob/1cec38633c049d916f5e65d4d74129737ee9851e/jupyter_client/client.py#L200
