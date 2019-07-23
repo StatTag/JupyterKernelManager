@@ -54,7 +54,7 @@ namespace JupyterKernelManager
         /// <summary>
         /// execution key, for signing messages.
         /// </summary>
-        public byte[] Key { get; set; }
+        public byte[] Key { get; private set; }
 
         /// <summary>
         /// for protecting against sends from forks
@@ -62,6 +62,8 @@ namespace JupyterKernelManager
         private int Pid { get; set; }
 
         private readonly HashHelper HashHelper = new HashHelper();
+
+        public HMAC Auth { get; private set; }
 
         /// <summary>
         /// Default constructor
@@ -109,16 +111,8 @@ namespace JupyterKernelManager
             Username = username;
             Key = key;
             Pid = Process.GetCurrentProcess().Id;
+            Auth = (Key != null && Key.Length > 0) ? new HMACSHA256(Key) : null;
         }
-
-        ///// <summary>
-        ///// Generate a new HMAC instance for Auth, if we have a key defined
-        ///// </summary>
-        ///// <returns></returns>
-        //private void NewAuth()
-        //{
-        //    Auth = (Key != null && Key.Length > 0) ? new HMACSHA256(Key) : null;
-        //}
 
         /// <summary>
         /// always return new uuid

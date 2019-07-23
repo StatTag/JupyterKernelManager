@@ -27,9 +27,22 @@ namespace JupyterKernelManager
     public class KernelClient
     {
         private KernelManager Parent { get; set; }
-        private KernelConnection Connection { get; set; }
+
+        private KernelConnection Connection
+        {
+            get
+            {
+                if (Parent == null)
+                {
+                    throw new NullReferenceException(
+                        "The parent KernelManager needs to be set in order to establish connections");
+                }
+
+                return Parent.ConnectionInformation;
+            }
+        }
+
         private Session ClientSession { get; set; }
-        private byte[] Key { get; set; }
 
         private ZMQSocketChannel _ShellChannel { get; set; }
         private ZMQSocketChannel _IoPubChannel { get; set; }
@@ -41,11 +54,8 @@ namespace JupyterKernelManager
 
         public KernelClient(KernelManager parent)
         {
-            //this.Key = parent.ConnectionInformation.Key.HexToBytes();
-            this.Key = Encoding.UTF8.GetBytes(parent.ConnectionInformation.Key);
-            this.ClientSession = new Session(Key);
             this.Parent = parent;
-            this.Connection = parent.ConnectionInformation;
+            this.ClientSession = new Session(Connection.Key);
         }
 
         /// <summary>
@@ -137,20 +147,10 @@ namespace JupyterKernelManager
                     // Start by pulling off the next <action>_request message
                     // from the client.
                     var nextMessage = channel.Receive();
-                    //var nextMessage = socket.ReceiveMessage(context);
-                    //logger.LogDebug(
-                    //    $"Received new message:\n" +
-                    //    $"\t{JsonConvert.SerializeObject(nextMessage.Header)}\n" +
-                    //    $"\t{JsonConvert.SerializeObject(nextMessage.ParentHeader)}\n" +
-                    //    $"\t{JsonConvert.SerializeObject(nextMessage.Metadata)}\n" +
-                    //    $"\t{JsonConvert.SerializeObject(nextMessage.Content)}"
-                    //);
-
-                    // If this is our first message, we need to set the session
-                    // id.
+                    // If this is our first message, we need to set the session id.
                     if (ClientSession == null)
                     {
-                        ClientSession = new Session(this.Key);
+                        throw new NullReferenceException("The client session must be established, but is null");
                     }
                     else if (string.IsNullOrEmpty(ClientSession.SessionId))
                     {
@@ -160,7 +160,6 @@ namespace JupyterKernelManager
                 catch (ProtocolViolationException ex)
                 {
                     Console.WriteLine("Protocol violation when trying to receive next ZeroMQ message.");
-                    //logger.LogCritical(ex, $"Protocol violation when trying to receive next ZeroMQ message.");
                 }
                 catch (ThreadInterruptedException)
                 {
@@ -218,7 +217,7 @@ namespace JupyterKernelManager
                 if (_ShellChannel == null)
                 {
                     var socket = Connection.ConnectShell();
-                    _ShellChannel = new ZMQSocketChannel(socket);
+                    _ShellChannel = new ZMQSocketChannel(socket, ClientSession);
                 }
 
                 return _ShellChannel;
@@ -235,7 +234,7 @@ namespace JupyterKernelManager
                 if (_IoPubChannel == null)
                 {
                     var socket = Connection.ConnectIoPub();
-                    _IoPubChannel = new ZMQSocketChannel(socket);
+                    _IoPubChannel = new ZMQSocketChannel(socket, ClientSession);
                 }
 
                 return _IoPubChannel;
@@ -252,7 +251,7 @@ namespace JupyterKernelManager
                 if (_StdInChannel == null)
                 {
                     var socket = Connection.ConnectStdin();
-                    _StdInChannel = new ZMQSocketChannel(socket);
+                    _StdInChannel = new ZMQSocketChannel(socket, ClientSession);
                 }
 
                 return _StdInChannel;
@@ -269,7 +268,7 @@ namespace JupyterKernelManager
                 if (_HbChannel == null)
                 {
                     var socket = Connection.ConnectHb();
-                    _HbChannel = new HeartbeatChannel(socket);
+                    _HbChannel = new HeartbeatChannel(socket, ClientSession);
                 }
 
                 return _HbChannel;

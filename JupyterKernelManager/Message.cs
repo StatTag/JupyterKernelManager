@@ -80,9 +80,9 @@ namespace JupyterKernelManager
             Content = content;
         }
 
-        public HMAC NewAuth()
+        public Message()
         {
-            return new HMACSHA256(Session.Key);
+
         }
 
         public List<byte[]> SerializeFrames()

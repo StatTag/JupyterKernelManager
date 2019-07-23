@@ -11,7 +11,7 @@ namespace JupyterKernelManager
     {
         public bool IsBeating { get; set; }
 
-        public HeartbeatChannel(NetMQSocket socket) : base(socket)
+        public HeartbeatChannel(NetMQSocket socket, Session session) : base(socket, session)
         {
             IsBeating = false;
         }

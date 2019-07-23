@@ -74,8 +74,27 @@ namespace JupyterKernelManager
         /// <summary>
         /// The Session key used for message authentication.
         /// </summary>
+        /// <remarks>This is stored as a string to allow easy serialization when we create a connection file.</remarks>
         [JsonProperty("key")]
-        public string Key { get; set; }
+        public string KeyString
+        {
+            get
+            {
+                if (Key == null)
+                {
+                    return null;
+                }
+
+                return Encoding.UTF8.GetString(Key);
+            }
+
+        }
+
+        /// <summary>
+        /// Return the key (if it is set) as a byte array
+        /// </summary>
+        [JsonIgnore]
+        public byte[] Key { get; set; }
 
         /// <summary>
         /// The transport protocol.  Currently only tcp is supported.

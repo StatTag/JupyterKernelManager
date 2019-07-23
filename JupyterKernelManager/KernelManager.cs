@@ -77,7 +77,7 @@ namespace JupyterKernelManager
                     ConnectionInformation.IpAddress));
             }
 
-            ConnectionInformation.Key = HashHelper.NewId(false, HASH_KEY_LENGTH); //.Replace("-", "");
+            ConnectionInformation.Key = HashHelper.NewIdBytes(false, HASH_KEY_LENGTH); //.Replace("-", "");
             ConnectionInformation.SignatureScheme = SignatureScheme.HmacSha256;
             ConnectionInformation.WriteConnectionFile();
 
