@@ -51,9 +51,11 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Conversions.cs" />
     <Compile Include="Cryptography.cs" />
     <Compile Include="DynamicDictionary.cs" />
     <Compile Include="Constants.cs" />
+    <Compile Include="HashHelper.cs" />
     <Compile Include="HeartbeatChannel.cs" />
     <Compile Include="InvalidChannelException.cs" />
     <Compile Include="JupyterPaths.cs" />

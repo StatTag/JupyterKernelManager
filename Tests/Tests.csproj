@@ -60,6 +60,7 @@
     <Compile Include="KernelConnectionTests.cs" />
     <Compile Include="SessionTests.cs" />
     <Compile Include="MessageTests.cs" />
+    <Compile Include="HashHelperTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

@@ -8,31 +8,13 @@ namespace Tests
     public class SessionTests
     {
         [TestMethod]
-        public void NewId()
-        {
-            Session session = new Session();
-            string sessionId1 = session.NewId();
-            // Format should be 32 characters + 1 hyphen
-            Assert.AreEqual(33, sessionId1.Length);
-            Assert.AreEqual('-', sessionId1[8]);
-
-            string sessionId2 = session.NewId();
-            Assert.AreNotEqual(sessionId1, sessionId2);
-        }
-
-        [TestMethod]
-        public void NewIdBytes()
-        {
-            Session session = new Session();
-            byte[] sessionId = session.NewIdBytes();
-            Assert.AreEqual(33, sessionId.Length);
-            Assert.AreEqual('-', (char)sessionId[8]);
-        }
-
-        [TestMethod]
         public void CreateMessage()
         {
-            Session session = new Session();
+            Session session = new Session(new byte[]
+            {
+                0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08,
+                0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0x10
+            });
             var message = session.CreateMessage("test");
             Assert.AreEqual("test", message.Header.MessageType);
             Assert.IsFalse(string.IsNullOrWhiteSpace(message.Header.Id));

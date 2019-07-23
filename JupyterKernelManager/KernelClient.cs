@@ -2,9 +2,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using NetMQ;
 
 namespace JupyterKernelManager
 {
@@ -27,15 +29,21 @@ namespace JupyterKernelManager
         private KernelManager Parent { get; set; }
         private KernelConnection Connection { get; set; }
         private Session ClientSession { get; set; }
+        private byte[] Key { get; set; }
 
         private ZMQSocketChannel _ShellChannel { get; set; }
         private ZMQSocketChannel _IoPubChannel { get; set; }
         private ZMQSocketChannel _StdInChannel { get; set; }
         private HeartbeatChannel _HbChannel { get; set; }
 
+        private Thread StdInThread { get; set; }
+        private Thread ShellThread { get; set; }
+
         public KernelClient(KernelManager parent)
         {
-            this.ClientSession = new Session();
+            //this.Key = parent.ConnectionInformation.Key.HexToBytes();
+            this.Key = Encoding.UTF8.GetBytes(parent.ConnectionInformation.Key);
+            this.ClientSession = new Session(Key);
             this.Parent = parent;
             this.Connection = parent.ConnectionInformation;
         }
@@ -78,7 +86,12 @@ namespace JupyterKernelManager
             if (shell)
             {
                 ShellChannel.Start();
-                KernelInfo();
+
+                ShellThread = new Thread(() => EventLoop(ShellChannel))
+                {
+                    Name = "Shell Channel"
+                };
+                ShellThread.Start();
             }
 
             if (iopub)
@@ -90,6 +103,13 @@ namespace JupyterKernelManager
             {
                 StdInChannel.Start();
                 AllowStdin = true;
+
+                StdInThread = new Thread(() => EventLoop(StdInChannel))
+                {
+                    Name = "StdIn Channel"
+                };
+                StdInThread.Start();
+
             }
             else
             {
@@ -100,11 +120,61 @@ namespace JupyterKernelManager
             {
                 HbChannel.Start();
             }
+
+            // Now that the channels have started, collect the kernel information
+            if (shell && ShellChannel.IsAlive)
+            {
+                KernelInfo();
+            }
+        }
+
+        private void EventLoop(ZMQSocketChannel channel)
+        {
+            while (this.IsAlive)
+            {
+                try
+                {
+                    // Start by pulling off the next <action>_request message
+                    // from the client.
+                    var nextMessage = channel.Receive();
+                    //var nextMessage = socket.ReceiveMessage(context);
+                    //logger.LogDebug(
+                    //    $"Received new message:\n" +
+                    //    $"\t{JsonConvert.SerializeObject(nextMessage.Header)}\n" +
+                    //    $"\t{JsonConvert.SerializeObject(nextMessage.ParentHeader)}\n" +
+                    //    $"\t{JsonConvert.SerializeObject(nextMessage.Metadata)}\n" +
+                    //    $"\t{JsonConvert.SerializeObject(nextMessage.Content)}"
+                    //);
+
+                    // If this is our first message, we need to set the session
+                    // id.
+                    if (ClientSession == null)
+                    {
+                        ClientSession = new Session(this.Key);
+                    }
+                    else if (string.IsNullOrEmpty(ClientSession.SessionId))
+                    {
+                        ClientSession.SessionId = nextMessage.Header.Session;
+                    }
+                }
+                catch (ProtocolViolationException ex)
+                {
+                    Console.WriteLine("Protocol violation when trying to receive next ZeroMQ message.");
+                    //logger.LogCritical(ex, $"Protocol violation when trying to receive next ZeroMQ message.");
+                }
+                catch (ThreadInterruptedException)
+                {
+                    if (!IsAlive)
+                    {
+                        return;
+                    }
+                }
+            }
         }
 
         /// <summary>
         /// Stops all the running channels for this kernel.
-        // This stops their event loops and joins their threads.
+        /// This stops their event loops and joins their threads.
         /// </summary>
         public void StopChannels()
         {

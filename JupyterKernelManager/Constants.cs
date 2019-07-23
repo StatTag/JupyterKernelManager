@@ -51,6 +51,11 @@ namespace JupyterKernelManager
     //    Tcp
     //}
 
+    public class SignatureScheme
+    {
+        public const string HmacSha256 = "hmac-sha256";
+    }
+
     //public enum SignatureScheme
     //{
     //    [EnumMember(Value = "hmac-sha256")]

@@ -22,8 +22,11 @@ namespace JupyterKernelManager
         /// </summary>
         private const int SHUTDOWN_WAIT_TIME = 5;
 
+        private const int HASH_KEY_LENGTH = 64;  // Default length expected by .NET HMAC function
+
         private KernelSpecManager SpecManager { get; set; }
         private KernelSpec Spec { get; set; }
+        private HashHelper HashHelper { get; set; }
 
         public KernelConnection ConnectionInformation { get; set; }
         private List<string> KernelCmd { get; set; }
@@ -37,6 +40,7 @@ namespace JupyterKernelManager
 
         public KernelManager(string kernelName)
         {
+            HashHelper = new HashHelper();
             SpecManager = new KernelSpecManager();
             Spec = SpecManager.GetKernelSpec(kernelName);
             ConnectionInformation = new KernelConnection();
@@ -73,6 +77,8 @@ namespace JupyterKernelManager
                     ConnectionInformation.IpAddress));
             }
 
+            ConnectionInformation.Key = HashHelper.NewId(false, HASH_KEY_LENGTH); //.Replace("-", "");
+            ConnectionInformation.SignatureScheme = SignatureScheme.HmacSha256;
             ConnectionInformation.WriteConnectionFile();
 
             // Save args for use in restart
