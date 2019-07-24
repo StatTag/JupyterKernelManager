@@ -57,7 +57,7 @@ namespace JupyterKernelManager
         private Thread IoPubThread { get; set; }
 
         private object ExecuteLogSync = new object();
-        private Dictionary<string, ExecutionEntry> ExecuteLog { get; set; }
+        public Dictionary<string, ExecutionEntry> ExecuteLog { get; private set; }
 
         public KernelClient(KernelManager parent)
         {
@@ -122,9 +122,7 @@ namespace JupyterKernelManager
         {
             lock (ExecuteLogSync)
             {
-                // Note that we consider results with an error to not be considered pending.  That's because
-                // we have the response from the kernel - even if it's an error result.
-                return ExecuteLog.Count(x => !x.Value.Complete && !x.Value.Error);
+                return ExecuteLog.Count(x => !x.Value.Complete);
             }
         }
 
@@ -210,9 +208,8 @@ namespace JupyterKernelManager
             {
                 while (this.IsAlive)
                 {
-
-                    // Start by pulling off the next <action>_request message
-                    // from the client.
+                    // Try to get the next response message from the kernel.  Note that we are using the non-blocking,
+                    // so the IsAlive check ensures we continue to poll for results.
                     var nextMessage = channel.TryReceive();
                     if (nextMessage == null)
                     {
@@ -227,6 +224,34 @@ namespace JupyterKernelManager
                     else if (string.IsNullOrEmpty(ClientSession.SessionId))
                     {
                         ClientSession.SessionId = nextMessage.Header.Session;
+                    }
+
+                    // From the message, check to see if it is related to an execute request.  If so, we need to track
+                    // that a response is back.
+                    bool isExecuteReply = nextMessage.Header.MessageType.Equals(MessageType.ExecuteReply);
+                    if (isExecuteReply || nextMessage.Header.MessageType.Equals(MessageType.DisplayData))
+                    {
+                        lock (ExecuteLogSync)
+                        {
+                            // No parent header means we can't confirm the message identity, so we will skip the result.
+                            if (nextMessage.ParentHeader == null)
+                            {
+                                continue;
+                            }
+
+                            var messageId = nextMessage.ParentHeader.Id;
+                            if (ExecuteLog.ContainsKey(messageId))
+                            {
+                                ExecuteLog[messageId].Complete = true;
+                                ExecuteLog[messageId].Response.Add(nextMessage);
+
+                                // If we have an execution reply, we can get the execution index from the message
+                                if (isExecuteReply)
+                                {
+                                    ExecuteLog[messageId].ExecutionIndex = nextMessage.Content.execution_count;
+                                }
+                            }
+                        }
                     }
                 }
             }

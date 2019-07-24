@@ -30,20 +30,43 @@ namespace LocalTest
                 var client = kernelManager.CreateClient();
                 client.StartChannels();
 
-                client.Execute("x <- 1; x");
+                client.Execute("x <- 100; x");
+                client.Execute("y <- 25");
+                client.Execute("x + y");
 
-                Pause();
+                while (client.HasPendingExecute())
+                {
+                    Pause();
+                }
 ;
                 client.StopChannels();
+
+                // Now echo out everything we did
+                var executeLog = client.ExecuteLog.Values.OrderBy(x => x.ExecutionIndex);
+                foreach (var entry in executeLog)
+                {
+                    Console.WriteLine("Item {0} ------------------------------------------", entry.ExecutionIndex);
+                    Console.WriteLine(entry.Request.Content.code);
+                    Console.WriteLine();
+
+                    var dataResponse = entry.Response.FirstOrDefault(x => x.Header.MessageType.Equals(MessageType.DisplayData));
+                    if (dataResponse == null)
+                    {
+                        Console.WriteLine("  ( No data returned for this code block )");
+                    }
+                    else
+                    {
+                        Console.WriteLine(dataResponse.Content);
+                    }
+                    Console.WriteLine("--------------------------------------------------\r\n");
+                }
             }
-            
         }
 
         static void Pause()
         {
             Console.WriteLine("Sleeping...");
-            Thread.Sleep(5000);
-            Console.WriteLine("Done sleeping");
+            Thread.Sleep(500);
         }
     }
 }

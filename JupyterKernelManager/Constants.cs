@@ -10,7 +10,10 @@ namespace JupyterKernelManager
     public class MessageType
     {
         public const string KernelInfoRequest = "kernel_info_request";
+        public const string KernelInfoReply = "kernel_info_reply";
         public const string ExecuteRequest = "execute_request";
+        public const string ExecuteReply = "execute_reply";
+        public const string DisplayData = "display_data";
     }
 
     public class ExecuteStatus
@@ -42,33 +45,8 @@ namespace JupyterKernelManager
     //    Starting
     //}
 
-    //[JsonConverter(typeof(StringEnumConverter))]
-    //public enum StreamName
-    //{
-    //    [EnumMember(Value = "stdin")]
-    //    StandardIn,
-
-    //    [EnumMember(Value = "stdout")]
-    //    StandardOut,
-
-    //    [EnumMember(Value = "stderr")]
-    //    StandardError
-    //}
-
-    //public enum Transport
-    //{
-    //    [EnumMember(Value = "tcp")]
-    //    Tcp
-    //}
-
     public class SignatureScheme
     {
         public const string HmacSha256 = "hmac-sha256";
     }
-
-    //public enum SignatureScheme
-    //{
-    //    [EnumMember(Value = "hmac-sha256")]
-    //    HmacSha256
-    //}
 }
