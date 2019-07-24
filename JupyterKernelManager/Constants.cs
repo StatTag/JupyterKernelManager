@@ -10,6 +10,7 @@ namespace JupyterKernelManager
     public class MessageType
     {
         public const string KernelInfoRequest = "kernel_info_request";
+        public const string ExecuteRequest = "execute_request";
     }
 
     public class ExecuteStatus
@@ -17,6 +18,15 @@ namespace JupyterKernelManager
         public const string Ok = "ok";
         public const string Error = "error";
         public const string Abort = "abort";
+    }
+
+    public class ChannelNames
+    {
+        public const string Shell = "shell";
+        public const string IoPub = "iopub";
+        public const string StdIn = "stdin";
+        public const string Heartbeat = "hb";
+        public const string Control = "control";
     }
 
     //[JsonConverter(typeof(StringEnumConverter))]

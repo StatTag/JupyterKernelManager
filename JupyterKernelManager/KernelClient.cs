@@ -1,8 +1,10 @@
 ﻿using JupyterKernelManager.Protocol;
 using System;
 using System.Collections.Generic;
+using System.Dynamic;
 using System.Linq;
 using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -51,6 +53,7 @@ namespace JupyterKernelManager
 
         private Thread StdInThread { get; set; }
         private Thread ShellThread { get; set; }
+        private Thread IoPubThread { get; set; }
 
         public KernelClient(KernelManager parent)
         {
@@ -76,6 +79,18 @@ namespace JupyterKernelManager
         public void GetStdinMsg()
         {
             // TODO: Implement
+        }
+
+        public void Execute(string code)
+        {
+            var message = ClientSession.CreateMessage(MessageType.ExecuteRequest);
+            message.Content = new ExpandoObject();
+            message.Content.code = code;
+            message.Content.silent = false;
+            message.Content.store_history = true;
+            message.Content.allow_stdin = false;
+            message.Content.stop_on_error = true;
+            _ShellChannel.Send(message);
         }
 
         /// <summary>
@@ -107,6 +122,12 @@ namespace JupyterKernelManager
             if (iopub)
             {
                 IoPubChannel.Start();
+
+                IoPubThread = new Thread(() => EventLoop(IoPubChannel))
+                {
+                    Name = "IoPub Channel"
+                };
+                IoPubThread.Start();
             }
 
             if (stdin)
@@ -140,13 +161,19 @@ namespace JupyterKernelManager
 
         private void EventLoop(ZMQSocketChannel channel)
         {
-            while (this.IsAlive)
+            try
             {
-                try
+                while (this.IsAlive)
                 {
+
                     // Start by pulling off the next <action>_request message
                     // from the client.
-                    var nextMessage = channel.Receive();
+                    var nextMessage = channel.TryReceive();
+                    if (nextMessage == null)
+                    {
+                        continue;
+                    }
+
                     // If this is our first message, we need to set the session id.
                     if (ClientSession == null)
                     {
@@ -157,17 +184,18 @@ namespace JupyterKernelManager
                         ClientSession.SessionId = nextMessage.Header.Session;
                     }
                 }
-                catch (ProtocolViolationException ex)
-                {
-                    Console.WriteLine("Protocol violation when trying to receive next ZeroMQ message.");
-                }
-                catch (ThreadInterruptedException)
-                {
-                    if (!IsAlive)
-                    {
-                        return;
-                    }
-                }
+            }
+            catch (ProtocolViolationException ex)
+            {
+                Console.WriteLine("Protocol violation when trying to receive next ZeroMQ message.");
+            }
+            catch (ThreadInterruptedException)
+            {
+                 return;
+            }
+            catch (SocketException)
+            {
+                 return;
             }
         }
 
@@ -177,6 +205,21 @@ namespace JupyterKernelManager
         /// </summary>
         public void StopChannels()
         {
+            // Close down the threads polling for results
+            if (StdInThread != null && StdInThread.IsAlive)
+            {
+                StdInThread.Interrupt();
+            }
+            if (ShellThread != null && ShellThread.IsAlive)
+            {
+                ShellThread.Interrupt();
+            }
+            if (IoPubThread != null && IoPubThread.IsAlive)
+            {
+                IoPubThread.Interrupt();
+            }
+
+            // Stop all the channel sockets
             if (ShellChannel.IsAlive)
             {
                 ShellChannel.Stop();
@@ -193,6 +236,16 @@ namespace JupyterKernelManager
             {
                 HbChannel.Stop();
             }
+
+            // Join any threads that existed
+            StdInThread?.Join();
+            ShellThread?.Join();
+            IoPubThread?.Join();
+
+            // Clean up any threads
+            StdInThread = null;
+            ShellThread = null;
+            IoPubThread = null;
         }
 
         /// <summary>
@@ -217,7 +270,7 @@ namespace JupyterKernelManager
                 if (_ShellChannel == null)
                 {
                     var socket = Connection.ConnectShell();
-                    _ShellChannel = new ZMQSocketChannel(socket, ClientSession);
+                    _ShellChannel = new ZMQSocketChannel(ChannelNames.Shell, socket, ClientSession);
                 }
 
                 return _ShellChannel;
@@ -234,7 +287,7 @@ namespace JupyterKernelManager
                 if (_IoPubChannel == null)
                 {
                     var socket = Connection.ConnectIoPub();
-                    _IoPubChannel = new ZMQSocketChannel(socket, ClientSession);
+                    _IoPubChannel = new ZMQSocketChannel(ChannelNames.IoPub, socket, ClientSession);
                 }
 
                 return _IoPubChannel;
@@ -251,7 +304,7 @@ namespace JupyterKernelManager
                 if (_StdInChannel == null)
                 {
                     var socket = Connection.ConnectStdin();
-                    _StdInChannel = new ZMQSocketChannel(socket, ClientSession);
+                    _StdInChannel = new ZMQSocketChannel(ChannelNames.StdIn, socket, ClientSession);
                 }
 
                 return _StdInChannel;
@@ -305,7 +358,6 @@ namespace JupyterKernelManager
         /// <returns>The msg_id of the message sent</returns>
         public string KernelInfo()
         {
-            // TODO - Implement
             var message = ClientSession.CreateMessage(MessageType.KernelInfoRequest);
             _ShellChannel.Send(message);
             return message.Header.Id;

@@ -18,6 +18,12 @@ namespace JupyterKernelManager
     {
         public const string JUPYTER_KERNEL_DELIMITER = "<IDS|MSG>";
 
+        /// <summary>
+        /// Internal object to synchronize access to our <see cref="Socket">Socket</see>.
+        /// </summary>
+        private object syncObj = new object();
+
+        public string Name { get; set; }
         public NetMQSocket Socket { get; set; }
         public Session Session { get; set; }
         public bool IsAlive { get; set; }
@@ -25,55 +31,127 @@ namespace JupyterKernelManager
         /// <summary>
         /// Create a channel.
         /// </summary>
+        /// <param name="name">An identifying name for the channel</param>
         /// <param name="socket">The NetMQ socket to use</param>
         /// <param name="ioloop">The zmq IO loop to connect the socket to using a ZMQStream</param>
-        public ZMQSocketChannel(NetMQSocket socket, Session session)
+        public ZMQSocketChannel(string name, NetMQSocket socket, Session session)
         {
+            Name = name;
             Socket = socket;
             Session = session;
         }
 
+        /// <summary>
+        /// Start up the socket channel
+        /// </summary>
         public void Start()
         {
             IsAlive = true;
         }
 
+        /// <summary>
+        /// Close the socket and clean it up.  Once called, the underlying socket is no
+        /// longer accessible or usable.
+        /// </summary>
         public void Stop()
         {
             IsAlive = false;
-        }
 
-        public void Close()
-        {
-            if (Socket == null)
+            lock (syncObj)
             {
-                return;
-            }
+                if (Socket == null)
+                {
+                    return;
+                }
 
-            Socket.Close();
-            Socket = null;
+                Socket.Close();
+                Socket = null;
+            }
         }
 
+        /// <summary>
+        /// Send a message to the underlying socket channel
+        /// </summary>
+        /// <param name="message"></param>
         public void Send(Message message)
         {
-            var zmqMessage = new NetMQMessage();
-            var frames = message.SerializeFrames();
-            var digest = Session.Auth.ComputeHash(frames.ToArray());
+            lock (syncObj)
+            {
+                // If the socket has been cleaned up, we should not continue
+                if (Socket == null)
+                {
+                    return;
+                }
 
-            message.ZmqIdentities?.ForEach(ident => zmqMessage.Append(ident));
-            zmqMessage.Append(JUPYTER_KERNEL_DELIMITER);
-            zmqMessage.Append(BitConverter.ToString(digest).Replace("-", "").ToLowerInvariant());
-            frames.ForEach(ident => zmqMessage.Append(ident));
+                var zmqMessage = new NetMQMessage();
+                var frames = message.SerializeFrames();
+                var digest = Session.Auth.ComputeHash(frames.ToArray());
 
-            Socket.SendMultipartMessage(zmqMessage);
+                message.ZmqIdentities?.ForEach(ident => zmqMessage.Append(ident));
+                zmqMessage.Append(JUPYTER_KERNEL_DELIMITER);
+                zmqMessage.Append(BitConverter.ToString(digest).Replace("-", "").ToLowerInvariant());
+                frames.ForEach(ident => zmqMessage.Append(ident));
+
+                Socket.SendMultipartMessage(zmqMessage);
+            }
         }
 
+        /// <summary>
+        /// Try to receive a response for this channel
+        /// </summary>
+        /// <param name="encoding"></param>
+        /// <returns></returns>
+        public Message TryReceive(Encoding encoding = null)
+        {
+            lock (syncObj)
+            {
+                // If the socket has been cleaned up, we should not continue
+                if (Socket == null)
+                {
+                    return null;
+                }
+
+                var rawFrames = new List<byte[]>();
+                if (Socket.TryReceiveMultipartBytes(TimeSpan.FromSeconds(1), ref rawFrames))
+                {
+                    return ProcessResults(rawFrames, encoding);
+                }
+
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Block until a response is received on this channel
+        /// </summary>
+        /// <param name="encoding"></param>
+        /// <returns></returns>
         public Message Receive(Encoding encoding = null)
+        {
+            lock (syncObj)
+            {
+                // If the socket has been cleaned up, we should not continue
+                if (Socket == null)
+                {
+                    return null;
+                }
+
+                // Get all the relevant message frames.
+                var rawFrames = Socket.ReceiveMultipartBytes();
+                return ProcessResults(rawFrames);
+            }
+        }
+
+        /// <summary>
+        /// Helper method to process a received message on the channel
+        /// </summary>
+        /// <param name="rawFrames"></param>
+        /// <param name="encoding"></param>
+        /// <returns></returns>
+        private Message ProcessResults(List<byte[]> rawFrames, Encoding encoding = null)
         {
             encoding = encoding ?? Encoding.UTF8;
 
-            // Get all the relevant message frames.
-            var rawFrames = Socket.ReceiveMultipartBytes();
             var frames = rawFrames
                 .Select(frame => encoding.GetString(frame))
                 .ToList();
@@ -131,7 +209,7 @@ namespace JupyterKernelManager
                 Header = header,
                 ParentHeader = JsonConvert.DeserializeObject<MessageHeader>(frames[idxDelimiter + 3]),
                 Metadata = JsonConvert.DeserializeObject<Dictionary<string, object>>(frames[idxDelimiter + 4]),
-                Content = JsonConvert.DeserializeObject("{}")
+                Content = JsonConvert.DeserializeObject(frames[idxDelimiter + 5])
             };
 
             return message;

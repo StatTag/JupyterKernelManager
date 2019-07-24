@@ -17,12 +17,6 @@ namespace JupyterKernelManager
         public const string TCP_TRANSPORT = "tcp";
         public const string LOCALHOST = "127.0.0.1";
 
-        public const string SHELL_CHANNEL = "shell";
-        public const string IOPUB_CHANNEL = "iopub";
-        public const string STDIN_CHANNEL = "stdin";
-        public const string HB_CHANNEL = "hb";
-        public const string CONTROL_CHANNEL = "control";
-
         [JsonIgnore]
         private static readonly IPEndPoint DefaultLoopbackEndpoint = new IPEndPoint(IPAddress.Loopback, port: 0);
 
@@ -151,7 +145,7 @@ namespace JupyterKernelManager
             // default to temporary connector file
             if (string.IsNullOrWhiteSpace(ConnectionFile))
             {
-                ConnectionFile = Path.GetTempFileName() + ".json";
+                ConnectionFile = Path.GetTempFileName();
             }
 
             // Find open ports as necessary.
@@ -194,7 +188,7 @@ namespace JupyterKernelManager
             {
                 File.Delete(ConnectionFile);
             }
-            catch (Exception exc)
+            catch (Exception)
             {
                 // Purposefully eating the exception
             }
@@ -265,15 +259,15 @@ namespace JupyterKernelManager
         {
             switch (channel.ToLower())
             {
-                case SHELL_CHANNEL:
+                case ChannelNames.Shell:
                     return ShellPort;
-                case IOPUB_CHANNEL:
+                case ChannelNames.IoPub:
                     return IoPubPort;
-                case STDIN_CHANNEL:
+                case ChannelNames.StdIn:
                     return StdinPort;
-                case HB_CHANNEL:
+                case ChannelNames.Heartbeat:
                     return HbPort;
-                case CONTROL_CHANNEL:
+                case ChannelNames.Control:
                     return ControlPort;
             }
 
@@ -299,7 +293,8 @@ namespace JupyterKernelManager
         /// <returns></returns>
         public SubscriberSocket ConnectIoPub()
         {
-            var socket = CreateConnectedSocket(IOPUB_CHANNEL, new SubscriberSocket()) as SubscriberSocket;
+            var socket = CreateConnectedSocket(ChannelNames.IoPub, new SubscriberSocket()) as SubscriberSocket;
+            socket?.SubscribeToAnyTopic();
             return socket;
         }
 
@@ -309,7 +304,7 @@ namespace JupyterKernelManager
         /// <returns></returns>
         public DealerSocket ConnectShell()
         {
-            var socket = CreateConnectedSocket(SHELL_CHANNEL, new DealerSocket()) as DealerSocket;
+            var socket = CreateConnectedSocket(ChannelNames.Shell, new DealerSocket()) as DealerSocket;
             return socket;
         }
 
@@ -319,7 +314,7 @@ namespace JupyterKernelManager
         /// <returns></returns>
         public DealerSocket ConnectStdin()
         {
-            var socket = CreateConnectedSocket(STDIN_CHANNEL, new DealerSocket()) as DealerSocket;
+            var socket = CreateConnectedSocket(ChannelNames.StdIn, new DealerSocket()) as DealerSocket;
             return socket;
         }
 
@@ -329,7 +324,7 @@ namespace JupyterKernelManager
         /// <returns></returns>
         public RequestSocket ConnectHb()
         {
-            var socket = CreateConnectedSocket(HB_CHANNEL, new RequestSocket()) as RequestSocket;
+            var socket = CreateConnectedSocket(ChannelNames.Heartbeat, new RequestSocket()) as RequestSocket;
             return socket;
         }
 
@@ -339,7 +334,7 @@ namespace JupyterKernelManager
         /// <returns></returns>
         public DealerSocket ConnectControl()
         {
-            var socket = CreateConnectedSocket(CONTROL_CHANNEL, new DealerSocket()) as DealerSocket;
+            var socket = CreateConnectedSocket(ChannelNames.Control, new DealerSocket()) as DealerSocket;
             return socket;
         }
     }

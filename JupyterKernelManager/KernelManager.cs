@@ -36,7 +36,7 @@ namespace JupyterKernelManager
         private Dictionary<string, string> ExtraEnvironment { get; set; }
 
         // TODO - figure out the right type.  Listed as "Any" in Jupyter implementation
-        private object ControlSocket { get; set; }
+        //private object ControlSocket { get; set; }
 
         public KernelManager(string kernelName)
         {
@@ -48,19 +48,20 @@ namespace JupyterKernelManager
 
         public void Dispose()
         {
-            //CloseControlSocket();
-            //CleanupConnectionFile();
+            EndKernelProcess();
+            ConnectionInformation?.CleanupConnectionFile();
         }
 
-        private void CloseControlSocket()
+        private void EndKernelProcess()
         {
-            //if (ControlSocket == null)
-            //{
-            //    return;
-            //}
-
-            //ControlSocket.Close();
-            //ControlSocket = null;
+            if (Kernel != null)
+            {
+                if (!Kernel.CloseMainWindow() && !Kernel.HasExited)
+                {
+                    Kernel.Kill();
+                }
+                Kernel = null;
+            }
         }
 
         /// <summary>
