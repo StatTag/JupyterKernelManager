@@ -24,7 +24,7 @@ namespace JupyterKernelManager
 
         private const int HASH_KEY_LENGTH = 64;  // Default length expected by .NET HMAC function
 
-        private KernelSpecManager SpecManager { get; set; }
+        private IKernelSpecManager SpecManager { get; set; }
         private KernelSpec Spec { get; set; }
         private HashHelper HashHelper { get; set; }
 
@@ -40,8 +40,18 @@ namespace JupyterKernelManager
 
         public KernelManager(string kernelName)
         {
+            Initialize(kernelName, new KernelSpecManager());
+        }
+
+        public KernelManager(string kernelName, IKernelSpecManager specManager)
+        {
+            Initialize(kernelName, specManager);
+        }
+
+        private void Initialize(string kernelName, IKernelSpecManager specManager)
+        {
             HashHelper = new HashHelper();
-            SpecManager = new KernelSpecManager();
+            SpecManager = specManager;
             Spec = SpecManager.GetKernelSpec(kernelName);
             ConnectionInformation = new KernelConnection();
         }

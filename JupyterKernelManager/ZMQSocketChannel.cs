@@ -14,7 +14,7 @@ namespace JupyterKernelManager
     /// <summary>
     /// A ZMQ socket invoking a callback in the ioloop
     /// </summary>
-    public class ZMQSocketChannel
+    public class ZMQSocketChannel : IChannel
     {
         public const string JUPYTER_KERNEL_DELIMITER = "<IDS|MSG>";
 
@@ -27,6 +27,7 @@ namespace JupyterKernelManager
         public NetMQSocket Socket { get; set; }
         public Session Session { get; set; }
         public bool IsAlive { get; set; }
+        public Encoding Encoding { get; private set; }
 
         /// <summary>
         /// Create a channel.
@@ -39,6 +40,7 @@ namespace JupyterKernelManager
             Name = name;
             Socket = socket;
             Session = session;
+            Encoding = Encoding.UTF8;
         }
 
         /// <summary>
@@ -99,9 +101,8 @@ namespace JupyterKernelManager
         /// <summary>
         /// Try to receive a response for this channel
         /// </summary>
-        /// <param name="encoding"></param>
         /// <returns></returns>
-        public Message TryReceive(Encoding encoding = null)
+        public Message TryReceive()
         {
             lock (syncObj)
             {
@@ -114,7 +115,7 @@ namespace JupyterKernelManager
                 var rawFrames = new List<byte[]>();
                 if (Socket.TryReceiveMultipartBytes(TimeSpan.FromSeconds(1), ref rawFrames))
                 {
-                    return ProcessResults(rawFrames, encoding);
+                    return ProcessResults(rawFrames);
                 }
 
                 return null;
@@ -126,7 +127,7 @@ namespace JupyterKernelManager
         /// </summary>
         /// <param name="encoding"></param>
         /// <returns></returns>
-        public Message Receive(Encoding encoding = null)
+        public Message Receive()
         {
             lock (syncObj)
             {
@@ -148,12 +149,10 @@ namespace JupyterKernelManager
         /// <param name="rawFrames"></param>
         /// <param name="encoding"></param>
         /// <returns></returns>
-        private Message ProcessResults(List<byte[]> rawFrames, Encoding encoding = null)
+        private Message ProcessResults(List<byte[]> rawFrames)
         {
-            encoding = encoding ?? Encoding.UTF8;
-
             var frames = rawFrames
-                .Select(frame => encoding.GetString(frame))
+                .Select(frame => Encoding.GetString(frame))
                 .ToList();
 
             // We know that one of the frames should be the special delimiter

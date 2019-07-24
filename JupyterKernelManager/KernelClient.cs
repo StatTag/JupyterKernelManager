@@ -29,6 +29,7 @@ namespace JupyterKernelManager
     public class KernelClient
     {
         private KernelManager Parent { get; set; }
+        private IChannelFactory ChannelFactory { get; set; }
 
         private KernelConnection Connection
         {
@@ -46,40 +47,45 @@ namespace JupyterKernelManager
 
         private Session ClientSession { get; set; }
 
-        private ZMQSocketChannel _ShellChannel { get; set; }
-        private ZMQSocketChannel _IoPubChannel { get; set; }
-        private ZMQSocketChannel _StdInChannel { get; set; }
-        private HeartbeatChannel _HbChannel { get; set; }
+        private IChannel _ShellChannel { get; set; }
+        private IChannel _IoPubChannel { get; set; }
+        private IChannel _StdInChannel { get; set; }
+        private IChannel _HbChannel { get; set; }
 
         private Thread StdInThread { get; set; }
         private Thread ShellThread { get; set; }
         private Thread IoPubThread { get; set; }
 
+        private object ExecuteLogSync = new object();
+        private Dictionary<string, ExecutionEntry> ExecuteLog { get; set; }
+
         public KernelClient(KernelManager parent)
+        {
+            Initialize(parent, null);
+        }
+
+        public KernelClient(KernelManager parent, IChannelFactory channelFactory)
+        {
+            Initialize(parent, channelFactory);
+        }
+
+        /// <summary>
+        /// Internal initialization method to create all necessary members
+        /// </summary>
+        /// <param name="parent"></param>
+        /// <param name="channelFactory"></param>
+        private void Initialize(KernelManager parent, IChannelFactory channelFactory)
         {
             this.Parent = parent;
             this.ClientSession = new Session(Connection.Key);
+            this.ExecuteLog = new Dictionary<string, ExecutionEntry>();
+            this.ChannelFactory = channelFactory ?? new ZMQChannelFactory(Connection, ClientSession);
         }
 
         /// <summary>
         /// Flag for whether execute requests should be allowed to call raw_input
         /// </summary>
         public bool AllowStdin { get; set; }
-
-        public void GetShellMsg()
-        {
-            // TODO: Implement
-        }
-
-        public void GetIoPubMsg()
-        {
-            // TODO: Implement
-        }
-
-        public void GetStdinMsg()
-        {
-            // TODO: Implement
-        }
 
         public void Execute(string code)
         {
@@ -91,6 +97,45 @@ namespace JupyterKernelManager
             message.Content.allow_stdin = false;
             message.Content.stop_on_error = true;
             _ShellChannel.Send(message);
+
+            // We start tracking an execute request once it is sent on the shell channel.
+            lock (ExecuteLogSync)
+            {
+                ExecuteLog.Add(message.Header.Id, new ExecutionEntry() { Request = message });
+            }
+        }
+
+        /// <summary>
+        /// Check if there are any execute requests that have no response yet
+        /// </summary>
+        /// <returns></returns>
+        public bool HasPendingExecute()
+        {
+            return GetPendingExecuteCount() > 0;
+        }
+
+        /// <summary>
+        /// Get the number of execute requests that have no response yet
+        /// </summary>
+        /// <returns></returns>
+        public int GetPendingExecuteCount()
+        {
+            lock (ExecuteLogSync)
+            {
+                // Note that we consider results with an error to not be considered pending.  That's because
+                // we have the response from the kernel - even if it's an error result.
+                return ExecuteLog.Count(x => !x.Value.Complete && !x.Value.Error);
+            }
+        }
+
+        /// <summary>
+        /// Reset the log of code execute requests that took place.  This will clear ALL entries,
+        /// including those that may not have been completed yet.  To avoid this, call <see cref="HasPendingExecute"/>
+        /// before clearing the log.
+        /// </summary>
+        public void ClearExecuteLog()
+        {
+            ExecuteLog = new Dictionary<string, ExecutionEntry>();
         }
 
         /// <summary>
@@ -159,7 +204,7 @@ namespace JupyterKernelManager
             }
         }
 
-        private void EventLoop(ZMQSocketChannel channel)
+        private void EventLoop(IChannel channel)
         {
             try
             {
@@ -263,69 +308,33 @@ namespace JupyterKernelManager
         /// <summary>
         /// Get the shell channel object for this kernel.
         /// </summary>
-        public ZMQSocketChannel ShellChannel
+        public IChannel ShellChannel
         {
-            get
-            {
-                if (_ShellChannel == null)
-                {
-                    var socket = Connection.ConnectShell();
-                    _ShellChannel = new ZMQSocketChannel(ChannelNames.Shell, socket, ClientSession);
-                }
-
-                return _ShellChannel;
-            }
+            get { return _ShellChannel ?? (_ShellChannel = ChannelFactory.CreateChannel(ChannelNames.Shell)); }
         }
 
         /// <summary>
         /// Get the iopub channel object for this kernel.
         /// </summary>
-        public ZMQSocketChannel IoPubChannel
+        public IChannel IoPubChannel
         {
-            get
-            {
-                if (_IoPubChannel == null)
-                {
-                    var socket = Connection.ConnectIoPub();
-                    _IoPubChannel = new ZMQSocketChannel(ChannelNames.IoPub, socket, ClientSession);
-                }
-
-                return _IoPubChannel;
-            }
+            get { return _IoPubChannel ?? (_IoPubChannel = ChannelFactory.CreateChannel(ChannelNames.IoPub)); }
         }
 
         /// <summary>
         /// Get the stdin channel object for this kernel.
         /// </summary>
-        public ZMQSocketChannel StdInChannel
+        public IChannel StdInChannel
         {
-            get
-            {
-                if (_StdInChannel == null)
-                {
-                    var socket = Connection.ConnectStdin();
-                    _StdInChannel = new ZMQSocketChannel(ChannelNames.StdIn, socket, ClientSession);
-                }
-
-                return _StdInChannel;
-            }
+            get { return _StdInChannel ?? (_StdInChannel = ChannelFactory.CreateChannel(ChannelNames.StdIn)); }
         }
 
         /// <summary>
         /// Get the heartbeat channel object for this kernel.
         /// </summary>
-        public ZMQSocketChannel HbChannel
+        public IChannel HbChannel
         {
-            get
-            {
-                if (_HbChannel == null)
-                {
-                    var socket = Connection.ConnectHb();
-                    _HbChannel = new HeartbeatChannel(socket, ClientSession);
-                }
-
-                return _HbChannel;
-            }
+            get { return _HbChannel ?? (_HbChannel = ChannelFactory.CreateChannel(ChannelNames.Heartbeat)); }
         }
 
         public bool IsAlive
@@ -339,11 +348,11 @@ namespace JupyterKernelManager
                     return Parent.IsAlive;
                 }
 
-                if (_HbChannel != null)
+                if (_HbChannel != null && _HbChannel is HeartbeatChannel)
                 {
                     // We don't have access to the KernelManager,
                     // so we use the heartbeat.
-                    return _HbChannel.IsBeating;
+                    return ((HeartbeatChannel)_HbChannel).IsBeating;
                 }
 
                 // no heartbeat and not local, we can't tell if it's running,

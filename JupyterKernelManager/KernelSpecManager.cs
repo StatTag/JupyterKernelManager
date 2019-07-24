@@ -13,7 +13,7 @@ namespace JupyterKernelManager
     /// The original version includes references to a NATIVE_KERNEL_NAME, which relates to the version of Python installed.
     /// We don't expect an analagous setup in a .NET implementation, so none of that code was implemented here.
     /// </summary>
-    public class KernelSpecManager
+    public class KernelSpecManager : IKernelSpecManager
     {
         private static readonly Regex KernelNamePattern = new Regex("^[a-z0-9._\\-]+$", RegexOptions.IgnoreCase);
         private JupyterPaths Paths = new JupyterPaths();
