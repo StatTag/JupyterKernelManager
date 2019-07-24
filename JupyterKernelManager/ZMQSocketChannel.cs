@@ -193,10 +193,9 @@ namespace JupyterKernelManager
             {
                 var digestStr = Convert.ToBase64String(digest);
                 var signatureStr = Convert.ToBase64String(signature);
-
-                // TODO Resolve sporadic HMAC validation errors
-                //throw new ProtocolViolationException(
-                //    $"HMAC {digestStr} did not agree with {signatureStr}.");
+                
+                throw new ProtocolViolationException(
+                    $"HMAC {digestStr} did not agree with {signatureStr}.");
             }
 
             // If we made it this far, we can unpack the content of the message

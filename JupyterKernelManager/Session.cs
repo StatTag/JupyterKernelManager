@@ -109,7 +109,15 @@ namespace JupyterKernelManager
                 username = System.Security.Principal.WindowsIdentity.GetCurrent().Name;
             }
             Username = username;
-            Key = key;
+            if (key == null)
+            {
+                Key = null;
+            }
+            else
+            {
+                Key = key.ToArray();
+            }
+
             Pid = Process.GetCurrentProcess().Id;
             Auth = (Key != null && Key.Length > 0) ? new HMACSHA256(Key) : null;
         }
