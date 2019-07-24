@@ -23,22 +23,45 @@ namespace LocalTest
                 Console.WriteLine("   Found {0} at {1}", kernelSpec.Key, kernelSpec.Value.ResourceDirectory);
             }
 
-            Console.WriteLine("Launching first kernel");
-            using (var kernelManager = new KernelManager(kernelSpecs.First().Key))
+            RunKernel("ir", new string[]
+            {
+                "x <- 100; x",
+                "y <- 25",
+                "x + y"
+            });
+            RunKernel("matlab", new string[]
+            {
+                "x = 100; disp(x)",
+                "y = 25;",
+                "disp(x + y)"
+            });
+            RunKernel("python3", new string[]
+            {
+                "x = 100; print(x)",
+                "y = 25;",
+                "print(x + y)"
+            });
+        }
+
+        static void RunKernel(string name, string[] code)
+        {
+            Console.WriteLine("{0} Kernel", name);
+            using (var kernelManager = new KernelManager(name))
             {
                 kernelManager.StartKernel();
                 var client = kernelManager.CreateClient();
                 client.StartChannels();
 
-                client.Execute("x <- 100; x");
-                client.Execute("y <- 25");
-                client.Execute("x + y");
+                foreach (var block in code)
+                {
+                    client.Execute(block);
+                }
 
                 while (client.HasPendingExecute())
                 {
                     Pause();
                 }
-;
+                ;
                 client.StopChannels();
 
                 // Now echo out everything we did
@@ -49,7 +72,8 @@ namespace LocalTest
                     Console.WriteLine(entry.Request.Content.code);
                     Console.WriteLine();
 
-                    var dataResponse = entry.Response.FirstOrDefault(x => x.Header.MessageType.Equals(MessageType.DisplayData));
+                    var dataResponse = entry.Response.FirstOrDefault(
+                        x => x.Header.MessageType.Equals(MessageType.DisplayData) || x.Header.MessageType.Equals(MessageType.Stream));
                     if (dataResponse == null)
                     {
                         Console.WriteLine("  ( No data returned for this code block )");
@@ -61,11 +85,11 @@ namespace LocalTest
                     Console.WriteLine("--------------------------------------------------\r\n");
                 }
             }
+            Console.WriteLine();
         }
 
         static void Pause()
         {
-            Console.WriteLine("Sleeping...");
             Thread.Sleep(500);
         }
     }
