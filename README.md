@@ -2,6 +2,8 @@
 
 A C# library that allows you to run locally installed Jupyter kernels and interact with them to execute code and return results.
 
+_This is currently in a pre-release state.  It is able to demonstrate proof of concept, but does not include all necessary features or error checking._
+
 ## Getting Started
 
 Clone the repository, and open `JupyterKernelManager/JupyterKernelManager.sln`.  This will load the library project (`JupyterKernelManager`), the unit tests (`Tests`), as well as a simple command line test program (`LocalTest`).
@@ -99,3 +101,6 @@ Many thanks to the following wonderful projects for providing code that was port
 * [Jupyter's Python client](https://github.com/jupyter/jupyter_client)
 * [Microsoft's C# Jupyter kernel library](https://github.com/microsoft/jupyter-core)
 * [Nteract's JavaScript Hydrogen environment](https://github.com/nteract/hydrogen)
+
+
+_This work was developed within the Northwestern University Clinical and Translational Sciences Institute, supported in part by the National Institutes of Health’s National Center for Advancing Translational Sciences (grant UL1TR001422).  The content is solely the responsibility of the developers and does not necessarily represent the official views of the National Institutes of Health or Northwestern University._
