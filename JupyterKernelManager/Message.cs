@@ -57,6 +57,8 @@ namespace JupyterKernelManager
 
         public MessageHeader Header { get; set; }
 
+        private static readonly object EmptyFrameObject = JsonConvert.DeserializeObject(EMPTY_FRAME);
+
         // As per Jupyter's wire protocol, if messages occur in sequence,
         // each message will have the previous message's header in this field.
         public MessageHeader ParentHeader { get; set; }
@@ -78,24 +80,24 @@ namespace JupyterKernelManager
             Content = content;
         }
 
-        public HMAC NewAuth()
+        public Message()
         {
-            return new HMACSHA256(Session.Key);
+
         }
 
         public List<byte[]> SerializeFrames()
         {
             var frames = new List<byte[]>();
             frames.Add(Encoding.UTF8.GetBytes(
-                (Header == null) ? EMPTY_FRAME : JsonConvert.SerializeObject(Header)));
+                JsonConvert.SerializeObject(Header ?? EmptyFrameObject)));
             frames.Add(Encoding.UTF8.GetBytes(
-                (ParentHeader == null) ? EMPTY_FRAME : JsonConvert.SerializeObject(ParentHeader)));
+                JsonConvert.SerializeObject(ParentHeader ?? EmptyFrameObject)));
             frames.Add(Encoding.UTF8.GetBytes(
-                (Metadata == null) ? EMPTY_FRAME : JsonConvert.SerializeObject(Metadata)));
+                JsonConvert.SerializeObject(Metadata ?? EmptyFrameObject)));
             frames.Add(Encoding.UTF8.GetBytes(
-                (Content == null) ? EMPTY_FRAME : JsonConvert.SerializeObject(Content)));
+                JsonConvert.SerializeObject(Content ?? EmptyFrameObject)));
 
-            return frames;
+            return frames.ToList();
         }
 
         //public Message(Message message)

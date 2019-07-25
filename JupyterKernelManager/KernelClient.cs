@@ -1,10 +1,14 @@
 ﻿using JupyterKernelManager.Protocol;
 using System;
 using System.Collections.Generic;
+using System.Dynamic;
 using System.Linq;
+using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using NetMQ;
 
 namespace JupyterKernelManager
 {
@@ -25,19 +29,57 @@ namespace JupyterKernelManager
     public class KernelClient
     {
         private KernelManager Parent { get; set; }
-        private KernelConnection Connection { get; set; }
+        private IChannelFactory ChannelFactory { get; set; }
+
+        private KernelConnection Connection
+        {
+            get
+            {
+                if (Parent == null)
+                {
+                    throw new NullReferenceException(
+                        "The parent KernelManager needs to be set in order to establish connections");
+                }
+
+                return Parent.ConnectionInformation;
+            }
+        }
+
         private Session ClientSession { get; set; }
 
-        private ZMQSocketChannel _ShellChannel { get; set; }
-        private ZMQSocketChannel _IoPubChannel { get; set; }
-        private ZMQSocketChannel _StdInChannel { get; set; }
-        private HeartbeatChannel _HbChannel { get; set; }
+        private IChannel _ShellChannel { get; set; }
+        private IChannel _IoPubChannel { get; set; }
+        private IChannel _StdInChannel { get; set; }
+        private IChannel _HbChannel { get; set; }
+
+        private Thread StdInThread { get; set; }
+        private Thread ShellThread { get; set; }
+        private Thread IoPubThread { get; set; }
+
+        private object ExecuteLogSync = new object();
+        public Dictionary<string, ExecutionEntry> ExecuteLog { get; private set; }
 
         public KernelClient(KernelManager parent)
         {
-            this.ClientSession = new Session();
+            Initialize(parent, null);
+        }
+
+        public KernelClient(KernelManager parent, IChannelFactory channelFactory)
+        {
+            Initialize(parent, channelFactory);
+        }
+
+        /// <summary>
+        /// Internal initialization method to create all necessary members
+        /// </summary>
+        /// <param name="parent"></param>
+        /// <param name="channelFactory"></param>
+        private void Initialize(KernelManager parent, IChannelFactory channelFactory)
+        {
             this.Parent = parent;
-            this.Connection = parent.ConnectionInformation;
+            this.ClientSession = new Session(Connection.Key);
+            this.ExecuteLog = new Dictionary<string, ExecutionEntry>();
+            this.ChannelFactory = channelFactory ?? new ZMQChannelFactory(Connection, ClientSession);
         }
 
         /// <summary>
@@ -45,19 +87,53 @@ namespace JupyterKernelManager
         /// </summary>
         public bool AllowStdin { get; set; }
 
-        public void GetShellMsg()
+        public void Execute(string code)
         {
-            // TODO: Implement
+            var message = ClientSession.CreateMessage(MessageType.ExecuteRequest);
+            message.Content = new ExpandoObject();
+            message.Content.code = code;
+            message.Content.silent = false;
+            message.Content.store_history = true;
+            message.Content.allow_stdin = false;
+            message.Content.stop_on_error = true;
+            _ShellChannel.Send(message);
+
+            // We start tracking an execute request once it is sent on the shell channel.
+            lock (ExecuteLogSync)
+            {
+                ExecuteLog.Add(message.Header.Id, new ExecutionEntry() { Request = message });
+            }
         }
 
-        public void GetIoPubMsg()
+        /// <summary>
+        /// Check if there are any execute requests that have no response yet
+        /// </summary>
+        /// <returns></returns>
+        public bool HasPendingExecute()
         {
-            // TODO: Implement
+            return GetPendingExecuteCount() > 0;
         }
 
-        public void GetStdinMsg()
+        /// <summary>
+        /// Get the number of execute requests that have no response yet
+        /// </summary>
+        /// <returns></returns>
+        public int GetPendingExecuteCount()
         {
-            // TODO: Implement
+            lock (ExecuteLogSync)
+            {
+                return ExecuteLog.Count(x => !x.Value.Complete);
+            }
+        }
+
+        /// <summary>
+        /// Reset the log of code execute requests that took place.  This will clear ALL entries,
+        /// including those that may not have been completed yet.  To avoid this, call <see cref="HasPendingExecute"/>
+        /// before clearing the log.
+        /// </summary>
+        public void ClearExecuteLog()
+        {
+            ExecuteLog = new Dictionary<string, ExecutionEntry>();
         }
 
         /// <summary>
@@ -78,18 +154,36 @@ namespace JupyterKernelManager
             if (shell)
             {
                 ShellChannel.Start();
-                KernelInfo();
+
+                ShellThread = new Thread(() => EventLoop(ShellChannel))
+                {
+                    Name = "Shell Channel"
+                };
+                ShellThread.Start();
             }
 
             if (iopub)
             {
                 IoPubChannel.Start();
+
+                IoPubThread = new Thread(() => EventLoop(IoPubChannel))
+                {
+                    Name = "IoPub Channel"
+                };
+                IoPubThread.Start();
             }
 
             if (stdin)
             {
                 StdInChannel.Start();
                 AllowStdin = true;
+
+                StdInThread = new Thread(() => EventLoop(StdInChannel))
+                {
+                    Name = "StdIn Channel"
+                };
+                StdInThread.Start();
+
             }
             else
             {
@@ -100,14 +194,103 @@ namespace JupyterKernelManager
             {
                 HbChannel.Start();
             }
+
+            // Now that the channels have started, collect the kernel information
+            if (shell && ShellChannel.IsAlive)
+            {
+                KernelInfo();
+            }
+        }
+
+        private void EventLoop(IChannel channel)
+        {
+            try
+            {
+                while (this.IsAlive)
+                {
+                    // Try to get the next response message from the kernel.  Note that we are using the non-blocking,
+                    // so the IsAlive check ensures we continue to poll for results.
+                    var nextMessage = channel.TryReceive();
+                    if (nextMessage == null)
+                    {
+                        continue;
+                    }
+
+                    // If this is our first message, we need to set the session id.
+                    if (ClientSession == null)
+                    {
+                        throw new NullReferenceException("The client session must be established, but is null");
+                    }
+                    else if (string.IsNullOrEmpty(ClientSession.SessionId))
+                    {
+                        ClientSession.SessionId = nextMessage.Header.Session;
+                    }
+
+                    // From the message, check to see if it is related to an execute request.  If so, we need to track
+                    // that a response is back.
+                    bool isExecuteReply = nextMessage.Header.MessageType.Equals(MessageType.ExecuteReply);
+                    bool isStream = nextMessage.Header.MessageType.Equals(MessageType.Stream);
+                    if (isExecuteReply || isStream || nextMessage.Header.MessageType.Equals(MessageType.DisplayData))
+                    {
+                        lock (ExecuteLogSync)
+                        {
+                            // No parent header means we can't confirm the message identity, so we will skip the result.
+                            if (nextMessage.ParentHeader == null)
+                            {
+                                continue;
+                            }
+
+                            var messageId = nextMessage.ParentHeader.Id;
+                            if (ExecuteLog.ContainsKey(messageId))
+                            {
+                                ExecuteLog[messageId].Complete = true;
+                                ExecuteLog[messageId].Response.Add(nextMessage);
+
+                                // If we have an execution reply, we can get the execution index from the message
+                                if (isExecuteReply)
+                                {
+                                    ExecuteLog[messageId].ExecutionIndex = nextMessage.Content.execution_count;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (ProtocolViolationException ex)
+            {
+                Console.WriteLine("Protocol violation when trying to receive next ZeroMQ message.");
+            }
+            catch (ThreadInterruptedException)
+            {
+                 return;
+            }
+            catch (SocketException)
+            {
+                 return;
+            }
         }
 
         /// <summary>
         /// Stops all the running channels for this kernel.
-        // This stops their event loops and joins their threads.
+        /// This stops their event loops and joins their threads.
         /// </summary>
         public void StopChannels()
         {
+            // Close down the threads polling for results
+            if (StdInThread != null && StdInThread.IsAlive)
+            {
+                StdInThread.Interrupt();
+            }
+            if (ShellThread != null && ShellThread.IsAlive)
+            {
+                ShellThread.Interrupt();
+            }
+            if (IoPubThread != null && IoPubThread.IsAlive)
+            {
+                IoPubThread.Interrupt();
+            }
+
+            // Stop all the channel sockets
             if (ShellChannel.IsAlive)
             {
                 ShellChannel.Stop();
@@ -124,6 +307,16 @@ namespace JupyterKernelManager
             {
                 HbChannel.Stop();
             }
+
+            // Join any threads that existed
+            StdInThread?.Join();
+            ShellThread?.Join();
+            IoPubThread?.Join();
+
+            // Clean up any threads
+            StdInThread = null;
+            ShellThread = null;
+            IoPubThread = null;
         }
 
         /// <summary>
@@ -141,69 +334,33 @@ namespace JupyterKernelManager
         /// <summary>
         /// Get the shell channel object for this kernel.
         /// </summary>
-        public ZMQSocketChannel ShellChannel
+        public IChannel ShellChannel
         {
-            get
-            {
-                if (_ShellChannel == null)
-                {
-                    var socket = Connection.ConnectShell();
-                    _ShellChannel = new ZMQSocketChannel(socket);
-                }
-
-                return _ShellChannel;
-            }
+            get { return _ShellChannel ?? (_ShellChannel = ChannelFactory.CreateChannel(ChannelNames.Shell)); }
         }
 
         /// <summary>
         /// Get the iopub channel object for this kernel.
         /// </summary>
-        public ZMQSocketChannel IoPubChannel
+        public IChannel IoPubChannel
         {
-            get
-            {
-                if (_IoPubChannel == null)
-                {
-                    var socket = Connection.ConnectIoPub();
-                    _IoPubChannel = new ZMQSocketChannel(socket);
-                }
-
-                return _IoPubChannel;
-            }
+            get { return _IoPubChannel ?? (_IoPubChannel = ChannelFactory.CreateChannel(ChannelNames.IoPub)); }
         }
 
         /// <summary>
         /// Get the stdin channel object for this kernel.
         /// </summary>
-        public ZMQSocketChannel StdInChannel
+        public IChannel StdInChannel
         {
-            get
-            {
-                if (_StdInChannel == null)
-                {
-                    var socket = Connection.ConnectStdin();
-                    _StdInChannel = new ZMQSocketChannel(socket);
-                }
-
-                return _StdInChannel;
-            }
+            get { return _StdInChannel ?? (_StdInChannel = ChannelFactory.CreateChannel(ChannelNames.StdIn)); }
         }
 
         /// <summary>
         /// Get the heartbeat channel object for this kernel.
         /// </summary>
-        public ZMQSocketChannel HbChannel
+        public IChannel HbChannel
         {
-            get
-            {
-                if (_HbChannel == null)
-                {
-                    var socket = Connection.ConnectHb();
-                    _HbChannel = new HeartbeatChannel(socket);
-                }
-
-                return _HbChannel;
-            }
+            get { return _HbChannel ?? (_HbChannel = ChannelFactory.CreateChannel(ChannelNames.Heartbeat)); }
         }
 
         public bool IsAlive
@@ -217,11 +374,11 @@ namespace JupyterKernelManager
                     return Parent.IsAlive;
                 }
 
-                if (_HbChannel != null)
+                if (_HbChannel != null && _HbChannel is HeartbeatChannel)
                 {
                     // We don't have access to the KernelManager,
                     // so we use the heartbeat.
-                    return _HbChannel.IsBeating;
+                    return ((HeartbeatChannel)_HbChannel).IsBeating;
                 }
 
                 // no heartbeat and not local, we can't tell if it's running,
@@ -236,7 +393,6 @@ namespace JupyterKernelManager
         /// <returns>The msg_id of the message sent</returns>
         public string KernelInfo()
         {
-            // TODO - Implement
             var message = ClientSession.CreateMessage(MessageType.KernelInfoRequest);
             _ShellChannel.Send(message);
             return message.Header.Id;

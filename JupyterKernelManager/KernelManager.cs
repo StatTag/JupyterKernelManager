@@ -22,8 +22,11 @@ namespace JupyterKernelManager
         /// </summary>
         private const int SHUTDOWN_WAIT_TIME = 5;
 
-        private KernelSpecManager SpecManager { get; set; }
+        private const int HASH_KEY_LENGTH = 64;  // Default length expected by .NET HMAC function
+
+        private IKernelSpecManager SpecManager { get; set; }
         private KernelSpec Spec { get; set; }
+        private HashHelper HashHelper { get; set; }
 
         public KernelConnection ConnectionInformation { get; set; }
         private List<string> KernelCmd { get; set; }
@@ -33,30 +36,42 @@ namespace JupyterKernelManager
         private Dictionary<string, string> ExtraEnvironment { get; set; }
 
         // TODO - figure out the right type.  Listed as "Any" in Jupyter implementation
-        private object ControlSocket { get; set; }
+        //private object ControlSocket { get; set; }
 
         public KernelManager(string kernelName)
         {
-            SpecManager = new KernelSpecManager();
+            Initialize(kernelName, new KernelSpecManager());
+        }
+
+        public KernelManager(string kernelName, IKernelSpecManager specManager)
+        {
+            Initialize(kernelName, specManager);
+        }
+
+        private void Initialize(string kernelName, IKernelSpecManager specManager)
+        {
+            HashHelper = new HashHelper();
+            SpecManager = specManager;
             Spec = SpecManager.GetKernelSpec(kernelName);
             ConnectionInformation = new KernelConnection();
         }
 
         public void Dispose()
         {
-            //CloseControlSocket();
-            //CleanupConnectionFile();
+            EndKernelProcess();
+            ConnectionInformation?.CleanupConnectionFile();
         }
 
-        private void CloseControlSocket()
+        private void EndKernelProcess()
         {
-            //if (ControlSocket == null)
-            //{
-            //    return;
-            //}
-
-            //ControlSocket.Close();
-            //ControlSocket = null;
+            if (Kernel != null)
+            {
+                if (!Kernel.CloseMainWindow() && !Kernel.HasExited)
+                {
+                    Kernel.Kill();
+                }
+                Kernel = null;
+            }
         }
 
         /// <summary>
@@ -73,6 +88,9 @@ namespace JupyterKernelManager
                     ConnectionInformation.IpAddress));
             }
 
+            ConnectionInformation.Key = HashHelper.NewIdBytes(false, HASH_KEY_LENGTH);
+            ConnectionInformation.KernelName = this.Spec.DisplayName;
+            ConnectionInformation.SignatureScheme = SignatureScheme.HmacSha256;
             ConnectionInformation.WriteConnectionFile();
 
             // Save args for use in restart
