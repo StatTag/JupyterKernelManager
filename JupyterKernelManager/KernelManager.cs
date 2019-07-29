@@ -13,7 +13,7 @@ namespace JupyterKernelManager
     /// <summary>
     /// Manages a single kernel in a subprocess on this host.
     /// </summary>
-    public class KernelManager : IDisposable
+    public class KernelManager : IDisposable, IKernelManager
     {
         private const string EXTRA_ARGUMENTS = "extra_arguments";
 

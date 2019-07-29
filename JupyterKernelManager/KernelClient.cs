@@ -26,9 +26,9 @@ namespace JupyterKernelManager
     /// send the message, they don't wait for a reply. To get results, use e.g.
     /// :meth:`get_shell_msg` to fetch messages from the shell channel.
     /// </summary>
-    public class KernelClient
+    public class KernelClient : IDisposable
     {
-        private KernelManager Parent { get; set; }
+        private IKernelManager Parent { get; set; }
         private IChannelFactory ChannelFactory { get; set; }
 
         private KernelConnection Connection
@@ -59,27 +59,33 @@ namespace JupyterKernelManager
         private object ExecuteLogSync = new object();
         public Dictionary<string, ExecutionEntry> ExecuteLog { get; private set; }
 
-        public KernelClient(KernelManager parent)
+        public KernelClient(IKernelManager parent, bool autoStartChannels = true)
         {
-            Initialize(parent, null);
+            Initialize(parent, null, autoStartChannels);
         }
 
-        public KernelClient(KernelManager parent, IChannelFactory channelFactory)
+        public KernelClient(IKernelManager parent, IChannelFactory channelFactory, bool autoStartChannels = true)
         {
-            Initialize(parent, channelFactory);
+            Initialize(parent, channelFactory, autoStartChannels);
         }
 
         /// <summary>
         /// Internal initialization method to create all necessary members
         /// </summary>
-        /// <param name="parent"></param>
-        /// <param name="channelFactory"></param>
-        private void Initialize(KernelManager parent, IChannelFactory channelFactory)
+        /// <param name="parent">The parent kernel manager that created us.</param>
+        /// <param name="channelFactory">Factory used to create the various channels</param>
+        /// <param name="autoStartChannels">If true, will automatically start the channels to the kernel</param>
+        private void Initialize(IKernelManager parent, IChannelFactory channelFactory, bool autoStartChannels)
         {
             this.Parent = parent;
             this.ClientSession = new Session(Connection.Key);
             this.ExecuteLog = new Dictionary<string, ExecutionEntry>();
             this.ChannelFactory = channelFactory ?? new ZMQChannelFactory(Connection, ClientSession);
+
+            if (autoStartChannels)
+            {
+                StartChannels();
+            }
         }
 
         /// <summary>
@@ -396,6 +402,14 @@ namespace JupyterKernelManager
             var message = ClientSession.CreateMessage(MessageType.KernelInfoRequest);
             _ShellChannel.Send(message);
             return message.Header.Id;
+        }
+
+        /// <summary>
+        /// Perform cleanup on all open resources (threads, channels)
+        /// </summary>
+        public void Dispose()
+        {
+            StopChannels();
         }
 
         // TODO - https://github.com/jupyter/jupyter_client/blob/1cec38633c049d916f5e65d4d74129737ee9851e/jupyter_client/client.py#L200
