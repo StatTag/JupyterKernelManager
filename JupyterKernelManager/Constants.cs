@@ -15,6 +15,8 @@ namespace JupyterKernelManager
         public const string ExecuteReply = "execute_reply";
         public const string DisplayData = "display_data";
         public const string Stream = "stream";
+        public const string ShutdownRequest = "shutdown_request";
+        public const string ShutdownReply = "shutdown_reply";
     }
 
     public class ExecuteStatus

@@ -49,40 +49,41 @@ namespace LocalTest
             using (var kernelManager = new KernelManager(name))
             {
                 kernelManager.StartKernel();
-                var client = kernelManager.CreateClient();
-                client.StartChannels();
-
-                foreach (var block in code)
+                using (var client = kernelManager.CreateClient())
                 {
-                    client.Execute(block);
-                }
 
-                while (client.HasPendingExecute())
-                {
-                    Pause();
-                }
-                ;
-                client.StopChannels();
-
-                // Now echo out everything we did
-                var executeLog = client.ExecuteLog.Values.OrderBy(x => x.ExecutionIndex);
-                foreach (var entry in executeLog)
-                {
-                    Console.WriteLine("Item {0} ------------------------------------------", entry.ExecutionIndex);
-                    Console.WriteLine(entry.Request.Content.code);
-                    Console.WriteLine();
-
-                    var dataResponse = entry.Response.FirstOrDefault(
-                        x => x.Header.MessageType.Equals(MessageType.DisplayData) || x.Header.MessageType.Equals(MessageType.Stream));
-                    if (dataResponse == null)
+                    foreach (var block in code)
                     {
-                        Console.WriteLine("  ( No data returned for this code block )");
+                        client.Execute(block);
                     }
-                    else
+
+                    while (client.HasPendingExecute())
                     {
-                        Console.WriteLine(dataResponse.Content);
+                        Pause();
                     }
-                    Console.WriteLine("--------------------------------------------------\r\n");
+
+                    // Now echo out everything we did
+                    var executeLog = client.ExecuteLog.Values.OrderBy(x => x.ExecutionIndex);
+                    foreach (var entry in executeLog)
+                    {
+                        Console.WriteLine("Item {0} ------------------------------------------", entry.ExecutionIndex);
+                        Console.WriteLine(entry.Request.Content.code);
+                        Console.WriteLine();
+
+                        var dataResponse = entry.Response.FirstOrDefault(
+                            x => x.Header.MessageType.Equals(MessageType.DisplayData) ||
+                                 x.Header.MessageType.Equals(MessageType.Stream));
+                        if (dataResponse == null)
+                        {
+                            Console.WriteLine("  ( No data returned for this code block )");
+                        }
+                        else
+                        {
+                            Console.WriteLine(dataResponse.Content);
+                        }
+
+                        Console.WriteLine("--------------------------------------------------\r\n");
+                    }
                 }
             }
             Console.WriteLine();
