@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
@@ -47,7 +48,9 @@ namespace JupyterKernelManager
         /// <returns></returns>
         public byte[] NewIdBytes(bool includeDelimiter = true, int length = DEFAULT_LENGTH)
         {
-            return Encoding.UTF8.GetBytes(NewId(includeDelimiter, length));
+            // We know that NewId creates a hex string which is 2x as long as the input, so because
+            // of the conversions we do we need to halve the length when it goes in.
+            return Encoding.ASCII.GetBytes(NewId(includeDelimiter, (length / 2)));
         }
     }
 }

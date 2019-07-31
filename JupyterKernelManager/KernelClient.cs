@@ -265,6 +265,7 @@ namespace JupyterKernelManager
             catch (ProtocolViolationException ex)
             {
                 Console.WriteLine("Protocol violation when trying to receive next ZeroMQ message.");
+                return;
             }
             catch (ThreadInterruptedException)
             {

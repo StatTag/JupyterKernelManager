@@ -6,6 +6,7 @@ using Microsoft.Jupyter.Core;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -25,6 +26,8 @@ namespace JupyterKernelManager
 
         public string Name { get; set; }
         public NetMQSocket Socket { get; set; }
+
+        private object sessionSync = new object();
         public Session Session { get; set; }
         public bool IsAlive { get; set; }
         public Encoding Encoding { get; private set; }
@@ -39,7 +42,7 @@ namespace JupyterKernelManager
         {
             Name = name;
             Socket = socket;
-            Session = session;
+            Session = session.Clone() as Session;
             Encoding = Encoding.UTF8;
         }
 
@@ -179,25 +182,33 @@ namespace JupyterKernelManager
             //     • A serialized content dictionary.
             // Any remaining blobs are extra raw data buffers.
 
-            // We start by computing the digest, since that is much, much easier
-            // to do given the raw frames than trying to unambiguously
-            // reserialize everything.
-            // To compute the digest and verify the message, we start by pulling
-            // out the claimed signature. This is by default a string of
-            // hexadecimal characters, so we convert to a byte[] for comparing
-            // with the HMAC output.
-            var signature = frames[idxDelimiter + 1].HexToBytes();
-            // Next, we take the four frames after the <IDS|MSG> delimeter, since
-            // those are the subject of the digest.
-            var toDigest = rawFrames.Skip(idxDelimiter + 2).Take(4).ToArray();
-            var digest = Session.Auth.ComputeHash(toDigest);
-
-            if (!signature.SequenceEqual(digest))
+            byte[] signature = null;
+            if (Session.Auth != null)
             {
-                var digestStr = Convert.ToBase64String(digest);
-                var signatureStr = Convert.ToBase64String(signature);
-                throw new ProtocolViolationException(
-                    string.Format("HMAC {0} did not agree with {1}.", digestStr, signatureStr));
+                // We start by computing the digest, since that is much, much easier
+                // to do given the raw frames than trying to unambiguously
+                // reserialize everything.
+                // To compute the digest and verify the message, we start by pulling
+                // out the claimed signature. This is by default a string of
+                // hexadecimal characters, so we convert to a byte[] for comparing
+                // with the HMAC output.
+                signature = frames[idxDelimiter + 1].HexToBytes();
+                // Next, we take the four frames after the <IDS|MSG> delimeter, since
+                // those are the subject of the digest.
+                var toDigest = rawFrames.Skip(idxDelimiter + 2).Take(4).ToArray();
+                byte[] digest = null;
+                lock (sessionSync)
+                {
+                    digest = Session.Auth.ComputeHash(toDigest);
+                }
+
+                if (!signature.SequenceEqual(digest))
+                {
+                    var digestStr = Convert.ToBase64String(digest);
+                    var signatureStr = Convert.ToBase64String(signature);
+                    throw new ProtocolViolationException(
+                        string.Format("HMAC {0} did not agree with {1}.", digestStr, signatureStr));
+                }
             }
 
             // If we made it this far, we can unpack the content of the message

@@ -23,7 +23,7 @@ namespace JupyterKernelManager
     /// Sessions support configurable serialization via packer/unpacker traits,
     /// and signing with HMAC digests via the key/keyfile traits.
     /// </summary>
-    public class Session
+    public class Session : ICloneable
     {
         /// <summary>
         /// Debug output in the Session
@@ -161,6 +161,15 @@ namespace JupyterKernelManager
                 Session = sessionId
             };
             return header;
+        }
+
+        /// <summary>
+        /// Create a copy of the session object
+        /// </summary>
+        /// <returns></returns>
+        public object Clone()
+        {
+            return new Session(this.SessionId, this.Username, this.Key, this.Debug);
         }
     }
 }
