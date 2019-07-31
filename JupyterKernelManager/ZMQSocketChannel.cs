@@ -89,7 +89,10 @@ namespace JupyterKernelManager
                 var frames = message.SerializeFrames();
                 var digest = Session.Auth.ComputeHash(frames.ToArray());
 
-                message.ZmqIdentities?.ForEach(ident => zmqMessage.Append(ident));
+                if (message.ZmqIdentities != null)
+                {
+                    message.ZmqIdentities.ForEach(ident => zmqMessage.Append(ident));
+                }
                 zmqMessage.Append(JUPYTER_KERNEL_DELIMITER);
                 zmqMessage.Append(BitConverter.ToString(digest).Replace("-", "").ToLowerInvariant());
                 frames.ForEach(ident => zmqMessage.Append(ident));
@@ -193,9 +196,8 @@ namespace JupyterKernelManager
             {
                 var digestStr = Convert.ToBase64String(digest);
                 var signatureStr = Convert.ToBase64String(signature);
-                
-                //throw new ProtocolViolationException(
-                //    $"HMAC {digestStr} did not agree with {signatureStr}.");
+                throw new ProtocolViolationException(
+                    string.Format("HMAC {0} did not agree with {1}.", digestStr, signatureStr));
             }
 
             // If we made it this far, we can unpack the content of the message

@@ -315,9 +315,18 @@ namespace JupyterKernelManager
             }
 
             // Join any threads that existed
-            StdInThread?.Join();
-            ShellThread?.Join();
-            IoPubThread?.Join();
+            if (StdInThread != null)
+            {
+                StdInThread.Join();
+            }
+            if (ShellThread != null)
+            {
+                ShellThread.Join();
+            }
+            if (IoPubThread != null)
+            {
+                IoPubThread.Join();
+            }
 
             // Clean up any threads
             StdInThread = null;

@@ -39,7 +39,7 @@ namespace JupyterKernelManager
                 case ChannelNames.Control:
                     return new ZMQSocketChannel(ChannelNames.Control, Connection.ConnectControl(), ClientSession);
                 default:
-                    throw new ArgumentOutOfRangeException($"Unable to create unknown channel {name}");
+                    throw new ArgumentOutOfRangeException(string.Format("Unable to create unknown channel {0}", name));
             }
         }
     }

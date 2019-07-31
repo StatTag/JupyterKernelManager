@@ -91,7 +91,10 @@ namespace JupyterKernelManager
                 KillKernelProcess();
             }
 
-            ConnectionInformation?.CleanupConnectionFile();
+            if (ConnectionInformation != null)
+            {
+                ConnectionInformation.CleanupConnectionFile();
+            }
 
             // Ensure all of our objects are cleaned up and nulled out
             ControlChannel = null;
