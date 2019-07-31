@@ -299,10 +299,12 @@ namespace JupyterKernelManager
             IntPtr handle = IntPtr.Zero;
             WinApi.DuplicateHandle(pid, pid, pid, out handle, 0, true, (uint)WinApi.DuplicateOptions.DUPLICATE_SAME_ACCESS);
 
-            //var process = new Process();
-            //process.StartInfo = new ProcessStartInfo(string.Join(" ", cmd));
-            //process.StartInfo.UseShellExecute = false;
-            var process = Process.Start(cmd[0], string.Join(" ", cmd.Skip(1)));
+            var info = new ProcessStartInfo(cmd[0], string.Join(" ", cmd.Skip(1)))
+            {
+                CreateNoWindow = true,
+                UseShellExecute = false
+            };
+            var process = Process.Start(info);
             return process;
         }
 
