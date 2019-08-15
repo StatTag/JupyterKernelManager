@@ -23,24 +23,28 @@ namespace LocalTest
                 Console.WriteLine("   Found {0} at {1}", kernelSpec.Key, kernelSpec.Value.ResourceDirectory);
             }
 
-            RunKernel("ir", new string[]
+            // Multiple iterations to help with testing for intermittent errors
+            for (int counter = 0; counter < 50; counter++)
             {
-                "x <- 100; x",
-                "y <- 25",
-                "x + y"
-            });
-            RunKernel("matlab", new string[]
-            {
-                "x = 100; disp(x)",
-                "y = 25;",
-                "disp(x + y)"
-            });
-            RunKernel("python3", new string[]
-            {
-                "x = 100; print(x)",
-                "y = 25;",
-                "print(x + y)"
-            });
+                RunKernel("ir", new string[]
+                {
+                    "x <- 100; x",
+                    "y <- 25",
+                    "x + y"
+                });
+                RunKernel("matlab", new string[]
+                {
+                    "x = 100; disp(x)",
+                    "y = 25;",
+                    "disp(x + y)"
+                });
+                RunKernel("python3", new string[]
+                {
+                    "x = 100; print(x)",
+                    "y = 25;",
+                    "print(x + y)"
+                });
+            }
         }
 
         static void RunKernel(string name, string[] code)
@@ -72,7 +76,8 @@ namespace LocalTest
 
                         var dataResponse = entry.Response.FirstOrDefault(
                             x => x.Header.MessageType.Equals(MessageType.DisplayData) ||
-                                 x.Header.MessageType.Equals(MessageType.Stream));
+                                 x.Header.MessageType.Equals(MessageType.Stream) ||
+                                 x.Header.MessageType.Equals(MessageType.ExecuteResult));
                         if (dataResponse == null)
                         {
                             Console.WriteLine("  ( No data returned for this code block )");

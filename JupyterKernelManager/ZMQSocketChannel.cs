@@ -119,7 +119,7 @@ namespace JupyterKernelManager
                 }
 
                 var rawFrames = new List<byte[]>();
-                if (Socket.TryReceiveMultipartBytes(TimeSpan.FromSeconds(1), ref rawFrames))
+                if (Socket.TryReceiveMultipartBytes(TimeSpan.FromMilliseconds(100), ref rawFrames))
                 {
                     return ProcessResults(rawFrames);
                 }

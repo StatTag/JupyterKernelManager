@@ -234,9 +234,12 @@ namespace JupyterKernelManager
 
                     // From the message, check to see if it is related to an execute request.  If so, we need to track
                     // that a response is back.
-                    bool isExecuteReply = nextMessage.Header.MessageType.Equals(MessageType.ExecuteReply);
-                    bool isStream = nextMessage.Header.MessageType.Equals(MessageType.Stream);
-                    if (isExecuteReply || isStream || nextMessage.Header.MessageType.Equals(MessageType.DisplayData))
+                    var messageType = nextMessage.Header.MessageType;
+                    bool isExecuteReply = messageType.Equals(MessageType.ExecuteReply);
+                    bool isExecuteResult = messageType.Equals(MessageType.ExecuteResult);
+                    bool isStream = messageType.Equals(MessageType.Stream);
+                    bool isDisplayData = messageType.Equals(MessageType.DisplayData);
+                    if (isExecuteReply || isStream || isExecuteResult || isDisplayData)
                     {
                         lock (ExecuteLogSync)
                         {
