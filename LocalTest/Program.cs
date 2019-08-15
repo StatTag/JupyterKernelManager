@@ -23,24 +23,28 @@ namespace LocalTest
                 Console.WriteLine("   Found {0} at {1}", kernelSpec.Key, kernelSpec.Value.ResourceDirectory);
             }
 
-            RunKernel("ir", new string[]
+            // Multiple iterations to help with testing for intermittent errors
+            for (int counter = 0; counter < 50; counter++)
             {
-                "x <- 100; x",
-                "y <- 25",
-                "x + y"
-            });
-            RunKernel("matlab", new string[]
-            {
-                "x = 100; disp(x)",
-                "y = 25;",
-                "disp(x + y)"
-            });
-            RunKernel("python3", new string[]
-            {
-                "x = 100; print(x)",
-                "y = 25;",
-                "print(x + y)"
-            });
+                RunKernel("ir", new string[]
+                {
+                    "x <- 100; x",
+                    "y <- 25",
+                    "x + y"
+                });
+                RunKernel("matlab", new string[]
+                {
+                    "x = 100; disp(x)",
+                    "y = 25;",
+                    "disp(x + y)"
+                });
+                RunKernel("python3", new string[]
+                {
+                    "x = 100; print(x)",
+                    "y = 25;",
+                    "print(x + y)"
+                });
+            }
         }
 
         static void RunKernel(string name, string[] code)
@@ -49,40 +53,42 @@ namespace LocalTest
             using (var kernelManager = new KernelManager(name))
             {
                 kernelManager.StartKernel();
-                var client = kernelManager.CreateClient();
-                client.StartChannels();
-
-                foreach (var block in code)
+                using (var client = kernelManager.CreateClient())
                 {
-                    client.Execute(block);
-                }
 
-                while (client.HasPendingExecute())
-                {
-                    Pause();
-                }
-                ;
-                client.StopChannels();
-
-                // Now echo out everything we did
-                var executeLog = client.ExecuteLog.Values.OrderBy(x => x.ExecutionIndex);
-                foreach (var entry in executeLog)
-                {
-                    Console.WriteLine("Item {0} ------------------------------------------", entry.ExecutionIndex);
-                    Console.WriteLine(entry.Request.Content.code);
-                    Console.WriteLine();
-
-                    var dataResponse = entry.Response.FirstOrDefault(
-                        x => x.Header.MessageType.Equals(MessageType.DisplayData) || x.Header.MessageType.Equals(MessageType.Stream));
-                    if (dataResponse == null)
+                    foreach (var block in code)
                     {
-                        Console.WriteLine("  ( No data returned for this code block )");
+                        client.Execute(block);
                     }
-                    else
+
+                    while (client.HasPendingExecute())
                     {
-                        Console.WriteLine(dataResponse.Content);
+                        Pause();
                     }
-                    Console.WriteLine("--------------------------------------------------\r\n");
+
+                    // Now echo out everything we did
+                    var executeLog = client.ExecuteLog.Values.OrderBy(x => x.ExecutionIndex);
+                    foreach (var entry in executeLog)
+                    {
+                        Console.WriteLine("Item {0} ------------------------------------------", entry.ExecutionIndex);
+                        Console.WriteLine(entry.Request.Content.code);
+                        Console.WriteLine();
+
+                        var dataResponse = entry.Response.FirstOrDefault(
+                            x => x.Header.MessageType.Equals(MessageType.DisplayData) ||
+                                 x.Header.MessageType.Equals(MessageType.Stream) ||
+                                 x.Header.MessageType.Equals(MessageType.ExecuteResult));
+                        if (dataResponse == null)
+                        {
+                            Console.WriteLine("  ( No data returned for this code block )");
+                        }
+                        else
+                        {
+                            Console.WriteLine(dataResponse.Content);
+                        }
+
+                        Console.WriteLine("--------------------------------------------------\r\n");
+                    }
                 }
             }
             Console.WriteLine();

@@ -294,7 +294,10 @@ namespace JupyterKernelManager
         public SubscriberSocket ConnectIoPub()
         {
             var socket = CreateConnectedSocket(ChannelNames.IoPub, new SubscriberSocket()) as SubscriberSocket;
-            socket?.SubscribeToAnyTopic();
+            if (socket != null)
+            {
+                socket.SubscribeToAnyTopic();
+            }
             return socket;
         }
 

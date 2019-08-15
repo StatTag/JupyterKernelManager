@@ -12,9 +12,12 @@ namespace JupyterKernelManager
         public const string KernelInfoRequest = "kernel_info_request";
         public const string KernelInfoReply = "kernel_info_reply";
         public const string ExecuteRequest = "execute_request";
+        public const string ExecuteResult = "execute_result";
         public const string ExecuteReply = "execute_reply";
         public const string DisplayData = "display_data";
         public const string Stream = "stream";
+        public const string ShutdownRequest = "shutdown_request";
+        public const string ShutdownReply = "shutdown_reply";
     }
 
     public class ExecuteStatus
