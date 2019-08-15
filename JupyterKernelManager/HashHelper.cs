@@ -10,9 +10,9 @@ namespace JupyterKernelManager
 {
     public class HashHelper
     {
-        private const int MIN_LENGTH = 16;
-        private const int DEFAULT_LENGTH = 16;
-        private const int MAX_LENGTH = 4096;
+        public const int MIN_LENGTH = 16;
+        public const int DEFAULT_LENGTH = 16;
+        public const int MAX_LENGTH = 4096;
 
         /// <summary>
         /// Random number generator, so we aren't recreating one each time it's needed.
@@ -46,7 +46,7 @@ namespace JupyterKernelManager
         /// Return a new ID as ascii bytes
         /// </summary>
         /// <returns></returns>
-        public byte[] NewIdBytes(bool includeDelimiter = true, int length = DEFAULT_LENGTH)
+        public byte[] NewIdBytes(bool includeDelimiter = true, int length = (DEFAULT_LENGTH * 2))
         {
             // We know that NewId creates a hex string which is 2x as long as the input, so because
             // of the conversions we do we need to halve the length when it goes in.

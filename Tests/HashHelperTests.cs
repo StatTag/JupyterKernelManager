@@ -36,5 +36,13 @@ namespace Tests
             byte[] sessionId = helper.NewIdBytes(false);
             Assert.AreEqual(32, sessionId.Length);
         }
+
+        [TestMethod]
+        [ExpectedException(typeof(ArgumentOutOfRangeException))]
+        public void NewIdBytes_TooShort()
+        {
+            var helper = new HashHelper();
+            byte[] sessionId = helper.NewIdBytes(false, (HashHelper.MIN_LENGTH - 1));
+        }
     }
 }
