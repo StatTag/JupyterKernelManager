@@ -236,10 +236,8 @@ namespace JupyterKernelManager
                     // that a response is back.
                     var messageType = nextMessage.Header.MessageType;
                     bool isExecuteReply = messageType.Equals(MessageType.ExecuteReply);
-                    bool isExecuteResult = messageType.Equals(MessageType.ExecuteResult);
-                    bool isStream = messageType.Equals(MessageType.Stream);
-                    bool isDisplayData = messageType.Equals(MessageType.DisplayData);
-                    if (isExecuteReply || isStream || isExecuteResult || isDisplayData)
+                    bool hasData = nextMessage.IsDataMessageType();
+                    if (isExecuteReply || hasData)
                     {
                         lock (ExecuteLogSync)
                         {

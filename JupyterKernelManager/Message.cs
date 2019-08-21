@@ -2,6 +2,9 @@
 // That code is Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+using System.Collections;
+using System.Dynamic;
+using System.Runtime.Remoting.Messaging;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -9,6 +12,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using Newtonsoft.Json.Linq;
 
 namespace JupyterKernelManager
 {
@@ -83,6 +87,66 @@ namespace JupyterKernelManager
         public Message()
         {
 
+        }
+
+        /// <summary>
+        /// Determine if the MessageType in the header indicates that this message should
+        /// have some returned data associated with it.
+        /// </summary>
+        /// <returns></returns>
+        public bool IsDataMessageType()
+        {
+            if (Header == null || string.IsNullOrWhiteSpace(Header.MessageType))
+            {
+                return false;
+            }
+
+            return Header.MessageType.Equals(MessageType.DisplayData) ||
+                   Header.MessageType.Equals(MessageType.Stream) ||
+                   Header.MessageType.Equals(MessageType.ExecuteResult);
+        }
+
+        /// <summary>
+        /// Returns the data for a particular MIME type.  If there is no data for that MIME type,
+        /// the method will return null.  This will protect against exceptions being thrown.
+        /// </summary>
+        /// <param name="mimeType">The MIME type to search for data under</param>
+        /// <returns>null if no data is found, otherwise returns the data as a string</returns>
+        public string SafeGetData(string mimeType)
+        {
+            try
+            {
+                if (Content == null || Content.data == null || !DoesPropertyExist(Content.data, mimeType))
+                {
+                    return null;
+                }
+
+                return Content.data[mimeType];
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Determine if a property exists in a dynamic object
+        /// </summary>
+        /// <param name="obj">The dynamic object to check</param>
+        /// <param name="name">The name of the property to look for</param>
+        /// <returns>true if the property exists, false otherwise</returns>
+        private static bool DoesPropertyExist(dynamic obj, string name)
+        {
+            if (obj is ExpandoObject)
+            {
+                return ((IDictionary<string, object>) obj).ContainsKey(name);
+            }
+            else if (obj is JObject)
+            {
+                return ((IDictionary<string, JToken>) obj).ContainsKey(name);
+            }
+
+            return obj.GetType().GetProperty(name) != null;
         }
 
         public List<byte[]> SerializeFrames()
