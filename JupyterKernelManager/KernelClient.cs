@@ -279,6 +279,45 @@ namespace JupyterKernelManager
         }
 
         /// <summary>
+        /// Is there an execution error that we have tracked in our execution log
+        /// </summary>
+        /// <returns>true if there is at least one execution error, false otherwise</returns>
+        public bool HasExecuteError()
+        {
+            lock (ExecuteLogSync)
+            {
+                // If we have nothing in the execution log, there can't be an error.
+                if (ExecuteLog == null || ExecuteLog.Count == 0)
+                {
+                    return false;
+                }
+
+                return ExecuteLog.Any(
+                    x =>
+                        x.Value.Response.Any(y => y.HasError()));
+            }
+        }
+
+        /// <summary>
+        /// Return a formatted string containing all of the error messages
+        /// </summary>
+        /// <returns></returns>
+        public List<string> GetExecuteErrors()
+        {
+            lock (ExecuteLogSync)
+            {
+                // If we have nothing in the execution log, there can't be an error.
+                if (ExecuteLog == null || ExecuteLog.Count == 0)
+                {
+                    return null;
+                }
+
+                var errors = ExecuteLog.SelectMany(x => x.Value.Response.Select(y => y.GetError()));
+                return errors.Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
+            }
+        }
+
+        /// <summary>
         /// Stops all the running channels for this kernel.
         /// This stops their event loops and joins their threads.
         /// </summary>

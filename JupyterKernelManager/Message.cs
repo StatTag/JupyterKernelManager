@@ -90,6 +90,31 @@ namespace JupyterKernelManager
         }
 
         /// <summary>
+        /// Does this message contain an error response
+        /// </summary>
+        /// <returns>true if the message reflects an error response</returns>
+        public bool HasError()
+        {
+            return Content != null && DoesPropertyExist(Content, "status") &&
+                   !Content.status.ToString().Equals(ExecuteStatus.Ok);
+        }
+
+        /// <summary>
+        /// Return the error response message, if one exists
+        /// </summary>
+        /// <returns>A string containing the error, or an empty string if no error (or no error message) exists.</returns>
+        public string GetError()
+        {
+            if (Content == null || !DoesPropertyExist(Content, "ename") || !DoesPropertyExist(Content, "evalue"))
+            {
+                return string.Empty;
+            }
+
+            return string.Format("{0}: {1}",
+                Content.ename, Content.evalue);
+        }
+
+        /// <summary>
         /// Determine if the MessageType in the header indicates that this message should
         /// have some returned data associated with it.
         /// </summary>
@@ -135,7 +160,7 @@ namespace JupyterKernelManager
         /// <param name="obj">The dynamic object to check</param>
         /// <param name="name">The name of the property to look for</param>
         /// <returns>true if the property exists, false otherwise</returns>
-        private static bool DoesPropertyExist(dynamic obj, string name)
+        public bool DoesPropertyExist(dynamic obj, string name)
         {
             if (obj is ExpandoObject)
             {
