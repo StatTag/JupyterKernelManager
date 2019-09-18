@@ -20,9 +20,30 @@ namespace JupyterKernelManager
         /// </summary>
         public bool IsBeating { get; set; }
 
-        private Thread HeartbeatThread { get; set; }
-        private const int TimeToDead = 1;
+        /// <summary>
+        /// Used to poll for responses in response to our heartbeat ping
+        /// </summary>
+        private NetMQPoller Poller { get; set; }
 
+        /// <summary>
+        /// Timer used to facilitate heartbeat pings on a set basis
+        /// </summary>
+        private NetMQTimer HeartbeatTimer { get; set; }
+
+        /// <summary>
+        /// How long we can wait (in milliseconds) before getting a reply to our heartbeat ping.
+        /// Once this time elapses, we consider the kernel dead.
+        /// </summary>
+        private const int TimeToDead = 1000;
+
+        /// <summary>
+        /// How often (in milliseconds) we send a heartbeat message to the kernel.
+        /// </summary>
+        private const int HeartbeatFrequency = 1000;
+
+        /// <summary>
+        /// The payload used for heartbeat messages to the kernel
+        /// </summary>
         private const string HeartbeatMessage = "ping";
 
         /// <summary>
@@ -40,119 +61,67 @@ namespace JupyterKernelManager
         {
             base.Start();
 
-            HeartbeatThread = new Thread(() => Poll(this))
+            lock (syncObj)
             {
-                Name = "Heartbeat Channel"
+                Poller = new NetMQPoller() {this.Socket};
+            }
+
+            HeartbeatTimer = new NetMQTimer(HeartbeatFrequency);
+            HeartbeatTimer.Elapsed += (sender, args) =>
+            {
+                lock (syncObj)
+                {
+                    Console.WriteLine("Sending heartbeat");
+                    var startTime = DateTime.UtcNow;
+                    this.Socket.SendFrame(HeartbeatMessage);
+                    while (!Receive())
+                    {
+                        var now = DateTime.UtcNow;
+                        if (now.Subtract(startTime).TotalMilliseconds >= TimeToDead)
+                        {
+                            Console.WriteLine("No heartbeat response in at least {0} seconds", TimeToDead);
+                            IsBeating = false;
+                            if (HeartbeatTimer != null)
+                            {
+                                Console.WriteLine("Removing heartbeat timer");
+                                HeartbeatTimer.Enable = false;
+                            }
+                            break;
+                        }
+                    }
+
+                    Console.WriteLine("Leaving lock zone");
+                }
+                Console.WriteLine("Leaving event handler");
             };
-            HeartbeatThread.Start();
+            Console.WriteLine("Adding heartbeat timer");
+            Poller.Add(HeartbeatTimer);
+            Console.WriteLine("Starting to run async");
+            Poller.RunAsync();
+            Console.WriteLine("Continuing on");
         }
 
         public override void Stop()
         {
-            if (HeartbeatThread != null)
+            Console.WriteLine("Stopping");
+            if (Poller != null)
             {
-                HeartbeatThread.Interrupt();
-                HeartbeatThread.Join(1000);
-                HeartbeatThread = null;
+                Console.WriteLine("Disabling timer");
+                HeartbeatTimer.Enable = false;
+                Console.WriteLine("Removing timer");
+                Poller.Remove(HeartbeatTimer);
+                Console.WriteLine("Setting timer to null");
+                HeartbeatTimer = null;
+                Console.WriteLine("Stopping poller");
+                Poller.Stop();
+                Console.WriteLine("Setting poller to null");
+                Poller = null;
             }
+
+            Console.WriteLine("Base stop to clean up socket");
             base.Stop();
         }
-
-        /// <summary>
-        /// poll for heartbeat replies until we reach self.time_to_dead.
-        /// Ignores interrupts, and returns the result of poll(), which
-        /// will be an empty list if no messages arrived before the timeout,
-        /// or the event tuple if there is a message to receive.
-        /// </summary>
-        /// <param name="channel"></param>
-        private void Poll(IChannel channel)
-        {
-            try
-            {
-                using (var poller = new NetMQPoller() {this.Socket})
-                {
-                    NetMQTimer heartbeatTimer = new NetMQTimer(1000);
-                    poller.Add(heartbeatTimer);
-                    heartbeatTimer.Elapsed += (sender, args) =>
-                    {
-                        Console.WriteLine("Sending heartbeat");
-                        this.Socket.SendFrame(HeartbeatMessage);
-                        while (!Receive())
-                        {
-                            Thread.Sleep(1000);
-                        }
-                    };
-                    poller.Run();
-                    //this.Socket.ReceiveReady += (sender, args) =>
-                    //{
-                    //    IsBeating = this.Receive();
-                    //    Console.WriteLine("Heartbeat: {0}", IsBeating);
-                    //    if (!IsBeating)
-                    //    {
-                    //        IsAlive = false;
-                    //    }
-                    //};
-                    //poller.RunAsync();
-
-                    //while (this.IsAlive)
-                    //{
-                    //    this.Socket.SendFrame(HeartbeatMessage);
-                    //    Thread.Sleep(1000 * TimeToDead);
-                    //}
-                    //IsAlive = true;
-                    //int failureCount = 0;
-
-                    //while (this.IsAlive)
-                    //{
-                    //    this.Socket.SendFrame(HeartbeatMessage);
-                    //    Thread.Sleep(1000 * TimeToDead);
-                    //    IsBeating = this.Receive();
-                    //    if (!IsBeating)
-                    //    {
-                    //        failureCount++;
-                    //    }
-
-                    //    if (failureCount < 2)
-                    //    {
-                    //        Console.WriteLine("Retrying heartbeat");
-                    //        continue;
-                    //    }
-
-                    //    Console.WriteLine("Heartbeat: {0}", IsBeating);
-
-                    //    if (!IsBeating)
-                    //    {
-
-                    //        IsAlive = false;
-                    //        break;
-                    //    }
-
-                    //    Thread.Sleep(1000 * TimeToDead);
-                    //}
-
-                    //poller.StopAsync();
-                }
-            }
-            catch (ProtocolViolationException ex)
-            {
-                Console.WriteLine("Protocol violation when trying to receive next ZeroMQ message.");
-                return;
-            }
-            catch (ThreadInterruptedException)
-            {
-                return;
-            }
-            catch (SocketException)
-            {
-                return;
-            }
-            catch (Exception)
-            {
-                IsAlive = false;
-                IsBeating = false;
-            }
-        }
-
+        
         /// <summary>
         /// Receive the heartbeat response from the kernel
         /// </summary>
@@ -168,7 +137,7 @@ namespace JupyterKernelManager
                 }
 
                 var rawFrames = new List<byte[]>();
-                if (Socket.TryReceiveMultipartBytes(TimeSpan.FromSeconds(TimeToDead), ref rawFrames))
+                if (Socket.TryReceiveMultipartBytes(TimeSpan.FromMilliseconds(TimeToDead), ref rawFrames))
                 {
                     var response = rawFrames.Select(frame => Encoding.GetString(frame)).FirstOrDefault();
                     return string.Equals(response, HeartbeatMessage);

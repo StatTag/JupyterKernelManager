@@ -153,7 +153,7 @@ namespace JupyterKernelManager
         {
             if (Kernel != null)
             {
-                if (!Kernel.CloseMainWindow() && !Kernel.HasExited)
+                if (!Kernel.HasExited && !Kernel.CloseMainWindow())
                 {
                     Kernel.Kill();
                 }
@@ -239,6 +239,10 @@ namespace JupyterKernelManager
             ControlThread.Start();
         }
 
+        /// <summary>
+        /// Event loop processor for the control channel's processing thread.
+        /// </summary>
+        /// <param name="channel"></param>
         private void EventLoop(IChannel channel)
         {
             try
@@ -295,10 +299,6 @@ namespace JupyterKernelManager
         /// <returns>Popen instance for the kernel subprocess</returns>
         private Process LaunchKernel(List<string> cmd, IDictionary<string, string> env, Dictionary<string, List<string>> kw)
         {
-            var pid = WinApi.GetCurrentProcess();
-            IntPtr handle = IntPtr.Zero;
-            WinApi.DuplicateHandle(pid, pid, pid, out handle, 0, true, (uint)WinApi.DuplicateOptions.DUPLICATE_SAME_ACCESS);
-
             var info = new ProcessStartInfo(cmd[0], string.Join(" ", cmd.Skip(1)))
             {
                 CreateNoWindow = true,
