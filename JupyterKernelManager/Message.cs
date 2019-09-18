@@ -95,8 +95,16 @@ namespace JupyterKernelManager
         /// <returns>true if the message reflects an error response</returns>
         public bool HasError()
         {
-            return Content != null && DoesPropertyExist(Content, "status") &&
-                   !Content.status.ToString().Equals(ExecuteStatus.Ok);
+            // Per comments at https://github.com/StatTag/JupyterKernelManager/issues/1, we will consider missing
+            // status values to be "ok".
+            if (Content == null || !DoesPropertyExist(Content, "status"))
+            {
+                return false;
+            }
+
+            // Otherwise, if it's set, it needs to be "ok" or blank, or we'll consider it an error.
+            string status = Content.status.ToString().Trim();
+            return !(status.Equals(string.Empty) || status.Equals(ExecuteStatus.Ok));
         }
 
         /// <summary>
