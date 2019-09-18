@@ -276,5 +276,75 @@ namespace Tests
             Assert.AreEqual("TestError: Error message 1", client.GetExecuteErrors().First());
             Assert.AreEqual("TestError: Error message 2", client.GetExecuteErrors().Last());
         }
+
+        [TestMethod]
+        public void AbandonOutstandingExecuteLogEntries_Empty()
+        {
+            var client = new KernelClient(KernelManagerMock.Object, ChannelFactoryMock.Object);
+            client.AbandonOutstandingExecuteLogEntries();
+            Assert.IsFalse(client.HasPendingExecute());
+        }
+
+        [TestMethod]
+        public void AbandonOutstandingExecuteLogEntries_AllAreComplete()
+        {
+            var client = new KernelClient(KernelManagerMock.Object, ChannelFactoryMock.Object);
+            client.ExecuteLog.Add("test1", new ExecutionEntry()
+            {
+                Complete = true
+            });
+            client.ExecuteLog.Add("test2", new ExecutionEntry()
+            {
+                Complete = true
+            });
+            Assert.IsFalse(client.HasPendingExecute());
+
+            client.AbandonOutstandingExecuteLogEntries();
+            Assert.IsFalse(client.HasPendingExecute());
+        }
+
+        [TestMethod]
+        public void AbandonOutstandingExecuteLogEntries_MixOfComplete()
+        {
+            var client = new KernelClient(KernelManagerMock.Object, ChannelFactoryMock.Object);
+            client.ExecuteLog.Add("test1", new ExecutionEntry()
+            {
+                Complete = false
+            });
+            client.ExecuteLog.Add("test2", new ExecutionEntry()
+            {
+                Complete = true
+            });
+            client.ExecuteLog.Add("test3", new ExecutionEntry()
+            {
+                Complete = false
+            });
+            Assert.IsTrue(client.HasPendingExecute());
+
+            client.AbandonOutstandingExecuteLogEntries();
+            Assert.IsFalse(client.HasPendingExecute());
+        }
+
+        [TestMethod]
+        public void AbandonOutstandingExecuteLogEntries_NoneComplete()
+        {
+            var client = new KernelClient(KernelManagerMock.Object, ChannelFactoryMock.Object);
+            client.ExecuteLog.Add("test1", new ExecutionEntry()
+            {
+                Complete = false
+            });
+            client.ExecuteLog.Add("test2", new ExecutionEntry()
+            {
+                Complete = false
+            });
+            client.ExecuteLog.Add("test3", new ExecutionEntry()
+            {
+                Complete = false
+            });
+            Assert.IsTrue(client.HasPendingExecute());
+
+            client.AbandonOutstandingExecuteLogEntries();
+            Assert.IsFalse(client.HasPendingExecute());
+        }
     }
 }

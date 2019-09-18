@@ -128,7 +128,7 @@ namespace JupyterKernelManager
         {
             lock (ExecuteLogSync)
             {
-                return ExecuteLog.Count(x => !x.Value.Complete);
+                return ExecuteLog.Count(x => (!x.Value.Complete && !x.Value.Abandoned));
             }
         }
 
@@ -189,7 +189,6 @@ namespace JupyterKernelManager
                     Name = "StdIn Channel"
                 };
                 StdInThread.Start();
-
             }
             else
             {
@@ -270,11 +269,39 @@ namespace JupyterKernelManager
             }
             catch (ThreadInterruptedException tie)
             {
-                 return;
+                return;
             }
             catch (SocketException se)
             {
-                 return;
+                return;
+            }
+            finally
+            {
+                // If we get here, we aren't expecting any more responses from the communication channel.  Hopefully
+                // we're in the happy path and everything is done, but if not we will abandon outstanding requests
+                // that haven't finished.
+                AbandonOutstandingExecuteLogEntries();
+            }
+        }
+
+        /// <summary>
+        /// Any outstanding entries in the execution log are going to be marked as abandoned.  This will
+        /// signal that we are no longer expecting any results, due to some error.
+        /// </summary>
+        public void AbandonOutstandingExecuteLogEntries()
+        {
+            lock (ExecuteLogSync)
+            {
+                if (ExecuteLog == null || ExecuteLog.Count == 0)
+                {
+                    return;
+                }
+
+                // For any item that is not yet completed, we will mark it as abandoned.
+                foreach (var item in ExecuteLog.Values.Where(x => !x.Complete))
+                {
+                    item.Abandoned = true;
+                }
             }
         }
 
@@ -423,18 +450,24 @@ namespace JupyterKernelManager
         {
             get
             {
-                if (Parent != null)
+                // This KernelClient was created by a KernelManager, and so
+                // we can ask the parent KernelManager.  If it's not alive, we can
+                // stop already.
+                if (Parent != null && !Parent.IsAlive)
                 {
-                    // This KernelClient was created by a KernelManager, and so
-                    // we can ask the parent KernelManager:
-                    return Parent.IsAlive;
+                    return false;
                 }
 
+                // Next, check to see if the heartbeat is there.
                 if (_HbChannel != null && _HbChannel is HeartbeatChannel)
                 {
-                    // We don't have access to the KernelManager,
-                    // so we use the heartbeat.
-                    return ((HeartbeatChannel)_HbChannel).IsBeating;
+                    // We only check the heartbeat status if the channel is alive.  If it's not alive, it means
+                    // the heartbeat isn't established yet, and we might get a false negative.
+                    var channel = _HbChannel as HeartbeatChannel;
+                    if (channel.IsAlive)
+                    {
+                        return channel.IsBeating;
+                    }
                 }
 
                 // no heartbeat and not local, we can't tell if it's running,
@@ -461,7 +494,5 @@ namespace JupyterKernelManager
         {
             StopChannels();
         }
-
-        // TODO - https://github.com/jupyter/jupyter_client/blob/1cec38633c049d916f5e65d4d74129737ee9851e/jupyter_client/client.py#L200
     }
 }

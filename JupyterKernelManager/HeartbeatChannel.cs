@@ -34,7 +34,7 @@ namespace JupyterKernelManager
         /// How long we can wait (in milliseconds) before getting a reply to our heartbeat ping.
         /// Once this time elapses, we consider the kernel dead.
         /// </summary>
-        private const int TimeToDead = 1000;
+        private const int TimeToDead = 1500;
 
         /// <summary>
         /// How often (in milliseconds) we send a heartbeat message to the kernel.
@@ -59,7 +59,8 @@ namespace JupyterKernelManager
 
         public override void Start()
         {
-            base.Start();
+            // We're not "alive" until we start tracking.
+            IsAlive = false;
 
             lock (syncObj)
             {
@@ -99,6 +100,11 @@ namespace JupyterKernelManager
             Console.WriteLine("Starting to run async");
             Poller.RunAsync();
             Console.WriteLine("Continuing on");
+
+            // We've got everything hooked up.  We consider our heartbeat alive and beating until
+            // proven otherwise.
+            IsAlive = true;
+            IsBeating = true;
         }
 
         public override void Stop()
