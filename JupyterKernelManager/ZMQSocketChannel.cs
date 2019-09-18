@@ -22,12 +22,12 @@ namespace JupyterKernelManager
         /// <summary>
         /// Internal object to synchronize access to our <see cref="Socket">Socket</see>.
         /// </summary>
-        private object syncObj = new object();
+        protected object syncObj = new object();
 
         public string Name { get; set; }
         public NetMQSocket Socket { get; set; }
 
-        private object sessionSync = new object();
+        protected object sessionSync = new object();
         public Session Session { get; set; }
         public bool IsAlive { get; set; }
         public Encoding Encoding { get; private set; }
@@ -49,7 +49,7 @@ namespace JupyterKernelManager
         /// <summary>
         /// Start up the socket channel
         /// </summary>
-        public void Start()
+        public virtual void Start()
         {
             IsAlive = true;
         }
@@ -58,7 +58,7 @@ namespace JupyterKernelManager
         /// Close the socket and clean it up.  Once called, the underlying socket is no
         /// longer accessible or usable.
         /// </summary>
-        public void Stop()
+        public virtual void Stop()
         {
             IsAlive = false;
 
@@ -155,7 +155,7 @@ namespace JupyterKernelManager
         /// <param name="rawFrames"></param>
         /// <param name="encoding"></param>
         /// <returns></returns>
-        private Message ProcessResults(List<byte[]> rawFrames)
+        protected Message ProcessResults(List<byte[]> rawFrames)
         {
             var frames = rawFrames
                 .Select(frame => Encoding.GetString(frame))
@@ -168,8 +168,6 @@ namespace JupyterKernelManager
             {
                 throw new ProtocolViolationException("Expected <IDS|MSG> delimiter, but none was present.");
             }
-
-            //var message = new Message(frames);
 
             // At this point, we know that everything before idxDelimter is
             // a ZMQ identity, and that everything after follows the Jupyter

@@ -268,11 +268,11 @@ namespace JupyterKernelManager
                 Console.WriteLine("Protocol violation when trying to receive next ZeroMQ message.");
                 return;
             }
-            catch (ThreadInterruptedException)
+            catch (ThreadInterruptedException tie)
             {
                  return;
             }
-            catch (SocketException)
+            catch (SocketException se)
             {
                  return;
             }
