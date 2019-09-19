@@ -20,6 +20,11 @@ namespace JupyterKernelManager
         public const string JUPYTER_KERNEL_DELIMITER = "<IDS|MSG>";
 
         /// <summary>
+        /// The logger for this class
+        /// </summary>
+        public ILogger Logger { get; set; }
+
+        /// <summary>
         /// Internal object to synchronize access to our <see cref="Socket">Socket</see>.
         /// </summary>
         protected object syncObj = new object();
@@ -37,13 +42,15 @@ namespace JupyterKernelManager
         /// </summary>
         /// <param name="name">An identifying name for the channel</param>
         /// <param name="socket">The NetMQ socket to use</param>
-        /// <param name="ioloop">The zmq IO loop to connect the socket to using a ZMQStream</param>
-        public ZMQSocketChannel(string name, NetMQSocket socket, Session session)
+        /// <param name="session">The session to connect the socket to</param>
+        /// <param name="logger">A specific logger implementation (if any) to use</param>
+        public ZMQSocketChannel(string name, NetMQSocket socket, Session session, ILogger logger = null)
         {
             Name = name;
             Socket = socket;
             Session = session.Clone() as Session;
             Encoding = Encoding.UTF8;
+            Logger = logger ?? new DefaultLogger();
         }
 
         /// <summary>
@@ -223,7 +230,7 @@ namespace JupyterKernelManager
                 Content = JsonConvert.DeserializeObject(frames[idxDelimiter + 5])
             };
 
-            Console.WriteLine("Receive on {0} for {1}", Name, header.MessageType);
+            Logger.Write("Receive on {0} for {1}", Name, header.MessageType);
 
             return message;
         }

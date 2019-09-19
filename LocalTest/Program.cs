@@ -13,6 +13,19 @@ namespace LocalTest
 {
     class Program
     {
+        class ConsoleLogger : ILogger
+        {
+            public void Write(string message, params object[] parameters)
+            {
+                Write(LogLevel.Default, message, parameters);
+            }
+
+            public void Write(int logLevel, string message, params object[] parameters)
+            {
+                Console.WriteLine(message, parameters);
+            }
+        }
+
         static void Main(string[] args)
         {
             var manager = new KernelSpecManager();
@@ -50,7 +63,7 @@ namespace LocalTest
         static void RunKernel(string name, string[] code)
         {
             Console.WriteLine("{0} Kernel", name);
-            using (var kernelManager = new KernelManager(name))
+            using (var kernelManager = new KernelManager(name, new ConsoleLogger()))
             {
                 kernelManager.StartKernel();
                 using (var client = kernelManager.CreateClient())

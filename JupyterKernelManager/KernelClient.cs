@@ -28,6 +28,7 @@ namespace JupyterKernelManager
     /// </summary>
     public class KernelClient : IDisposable
     {
+        private ILogger Logger { get; set; }
         private IKernelManager Parent { get; set; }
         private IChannelFactory ChannelFactory { get; set; }
 
@@ -59,14 +60,14 @@ namespace JupyterKernelManager
         private object ExecuteLogSync = new object();
         public Dictionary<string, ExecutionEntry> ExecuteLog { get; private set; }
 
-        public KernelClient(IKernelManager parent, bool autoStartChannels = true)
+        public KernelClient(IKernelManager parent, bool autoStartChannels = true, ILogger logger = null)
         {
-            Initialize(parent, null, autoStartChannels);
+            Initialize(parent, null, autoStartChannels, logger);
         }
 
-        public KernelClient(IKernelManager parent, IChannelFactory channelFactory, bool autoStartChannels = true)
+        public KernelClient(IKernelManager parent, IChannelFactory channelFactory, bool autoStartChannels = true, ILogger logger = null)
         {
-            Initialize(parent, channelFactory, autoStartChannels);
+            Initialize(parent, channelFactory, autoStartChannels, logger);
         }
 
         /// <summary>
@@ -75,12 +76,13 @@ namespace JupyterKernelManager
         /// <param name="parent">The parent kernel manager that created us.</param>
         /// <param name="channelFactory">Factory used to create the various channels</param>
         /// <param name="autoStartChannels">If true, will automatically start the channels to the kernel</param>
-        private void Initialize(IKernelManager parent, IChannelFactory channelFactory, bool autoStartChannels)
+        private void Initialize(IKernelManager parent, IChannelFactory channelFactory, bool autoStartChannels, ILogger logger)
         {
+            this.Logger = logger ?? new DefaultLogger();
             this.Parent = parent;
             this.ClientSession = new Session(Connection.Key);
             this.ExecuteLog = new Dictionary<string, ExecutionEntry>();
-            this.ChannelFactory = channelFactory ?? new ZMQChannelFactory(Connection, ClientSession);
+            this.ChannelFactory = channelFactory ?? new ZMQChannelFactory(Connection, ClientSession, Logger);
 
             if (autoStartChannels)
             {
@@ -264,16 +266,15 @@ namespace JupyterKernelManager
             }
             catch (ProtocolViolationException ex)
             {
-                Console.WriteLine("Protocol violation when trying to receive next ZeroMQ message.");
-                return;
+                Logger.Write("Protocol violation when trying to receive next ZeroMQ message: {0}", ex.Message);
             }
             catch (ThreadInterruptedException tie)
             {
-                return;
+                // We anticipate this and don't want to do anything
             }
             catch (SocketException se)
             {
-                return;
+                Logger.Write("Socket exception {0}", se.Message);
             }
             finally
             {

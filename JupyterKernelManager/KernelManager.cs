@@ -30,6 +30,7 @@ namespace JupyterKernelManager
 
         private const int HASH_KEY_LENGTH = 64;  // Default length expected by .NET HMAC function
 
+        private ILogger Logger { get; set; }
         private IChannelFactory ChannelFactory { get; set; }
         private Session ClientSession { get; set; }
         private IKernelSpecManager SpecManager { get; set; }
@@ -54,9 +55,9 @@ namespace JupyterKernelManager
         /// Construct a manager for a given Jupyter kernel
         /// </summary>
         /// <param name="kernelName">The name of the Jupyter kernel to start and manager</param>
-        public KernelManager(string kernelName)
+        public KernelManager(string kernelName, ILogger logger = null)
         {
-            Initialize(kernelName, null, null);
+            Initialize(kernelName, null, null, logger);
         }
 
         /// <summary>
@@ -65,13 +66,14 @@ namespace JupyterKernelManager
         /// <param name="kernelName">The name of the Jupyter kernel to start and manager</param>
         /// <param name="specManager">The manager for the kernelspecs</param>
         /// <param name="channelFactory">A factory class to create ZMQ channels</param>
-        public KernelManager(string kernelName, IKernelSpecManager specManager, IChannelFactory channelFactory)
+        public KernelManager(string kernelName, IKernelSpecManager specManager, IChannelFactory channelFactory, ILogger logger = null)
         {
-            Initialize(kernelName, specManager, channelFactory);
+            Initialize(kernelName, specManager, channelFactory, logger);
         }
 
-        private void Initialize(string kernelName, IKernelSpecManager specManager, IChannelFactory channelFactory)
+        private void Initialize(string kernelName, IKernelSpecManager specManager, IChannelFactory channelFactory, ILogger logger)
         {
+            this.Logger = logger ?? new DefaultLogger();
             this.HashHelper = new HashHelper();
             this.SpecManager = specManager ?? (new KernelSpecManager());
             this.Spec = SpecManager.GetKernelSpec(kernelName);
@@ -139,6 +141,7 @@ namespace JupyterKernelManager
                 }
                 catch (Exception exc)
                 {
+                    Logger.Write("Exception when trying to shut down {0}", exc.Message);
                     return false;
                 }
             }
@@ -214,7 +217,7 @@ namespace JupyterKernelManager
             Kernel = LaunchKernel(kernelCmd, env, kw);
 
             this.ClientSession = new Session(ConnectionInformation.Key);
-            this.ChannelFactory = this.ChannelFactory ?? new ZMQChannelFactory(ConnectionInformation, ClientSession);
+            this.ChannelFactory = this.ChannelFactory ?? new ZMQChannelFactory(ConnectionInformation, ClientSession, Logger);
             CreateControlChannel();
         }
 
@@ -278,15 +281,15 @@ namespace JupyterKernelManager
             }
             catch (ProtocolViolationException ex)
             {
-                Console.WriteLine("Protocol violation when trying to receive next ZeroMQ message.");
+                Logger.Write("Protocol violation when trying to receive next ZeroMQ message: {0}", ex.Message);
             }
             catch (ThreadInterruptedException)
             {
                 return;
             }
-            catch (SocketException)
+            catch (SocketException se)
             {
-                return;
+                Logger.Write("Socket exception {0}", se.Message);
             }
         }
 
@@ -395,7 +398,7 @@ namespace JupyterKernelManager
         /// <returns></returns>
         public KernelClient CreateClient()
         {
-            return new KernelClient(this, ChannelFactory, true);
+            return new KernelClient(this, ChannelFactory, true, Logger);
         }
     }
 }

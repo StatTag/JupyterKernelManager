@@ -57,6 +57,8 @@
   <ItemGroup>
     <Compile Include="ExecutionEntry.cs" />
     <Compile Include="Interfaces\IKernelManager.cs" />
+    <Compile Include="Interfaces\ILogger.cs" />
+    <Compile Include="DefaultLogger.cs" />
     <Compile Include="ZMQChannelFactory.cs" />
     <Compile Include="Conversions.cs" />
     <Compile Include="Cryptography.cs" />

@@ -1,6 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -34,6 +35,16 @@ namespace JupyterKernelManager
         public const string StdIn = "stdin";
         public const string Heartbeat = "hb";
         public const string Control = "control";
+    }
+
+    public class LogLevel
+    {
+        public const int Debug = 1;
+        public const int Info = 2;
+        public const int Warn = 3;
+        public const int Error = 4;
+
+        public const int Default = Info;
     }
 
     //[JsonConverter(typeof(StringEnumConverter))]

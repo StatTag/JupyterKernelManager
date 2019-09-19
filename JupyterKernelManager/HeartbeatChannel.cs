@@ -51,7 +51,7 @@ namespace JupyterKernelManager
         /// </summary>
         /// <param name="socket"></param>
         /// <param name="session"></param>
-        public HeartbeatChannel(NetMQSocket socket, Session session) : base(ChannelNames.Heartbeat, socket, session)
+        public HeartbeatChannel(NetMQSocket socket, Session session, ILogger logger = null) : base(ChannelNames.Heartbeat, socket, session, logger)
         {
             IsBeating = false;
             IsAlive = false;
@@ -72,7 +72,7 @@ namespace JupyterKernelManager
             {
                 lock (syncObj)
                 {
-                    Console.WriteLine("Sending heartbeat");
+                    Logger.Write("Sending heartbeat");
                     var startTime = DateTime.UtcNow;
                     this.Socket.SendFrame(HeartbeatMessage);
                     while (!Receive())
@@ -80,26 +80,26 @@ namespace JupyterKernelManager
                         var now = DateTime.UtcNow;
                         if (now.Subtract(startTime).TotalMilliseconds >= TimeToDead)
                         {
-                            Console.WriteLine("No heartbeat response in at least {0} seconds", TimeToDead);
+                            Logger.Write("No heartbeat response in at least {0} seconds", TimeToDead);
                             IsBeating = false;
                             if (HeartbeatTimer != null)
                             {
-                                Console.WriteLine("Removing heartbeat timer");
+                                Logger.Write("Removing heartbeat timer");
                                 HeartbeatTimer.Enable = false;
                             }
                             break;
                         }
                     }
 
-                    Console.WriteLine("Leaving lock zone");
+                    Logger.Write("Leaving lock zone");
                 }
-                Console.WriteLine("Leaving event handler");
+                Logger.Write("Leaving event handler");
             };
-            Console.WriteLine("Adding heartbeat timer");
+            Logger.Write("Adding heartbeat timer");
             Poller.Add(HeartbeatTimer);
-            Console.WriteLine("Starting to run async");
+            Logger.Write("Starting to run async");
             Poller.RunAsync();
-            Console.WriteLine("Continuing on");
+            Logger.Write("Continuing on");
 
             // We've got everything hooked up.  We consider our heartbeat alive and beating until
             // proven otherwise.
@@ -109,22 +109,22 @@ namespace JupyterKernelManager
 
         public override void Stop()
         {
-            Console.WriteLine("Stopping");
+            Logger.Write("Stopping");
             if (Poller != null)
             {
-                Console.WriteLine("Disabling timer");
+                Logger.Write("Disabling timer");
                 HeartbeatTimer.Enable = false;
-                Console.WriteLine("Removing timer");
+                Logger.Write("Removing timer");
                 Poller.Remove(HeartbeatTimer);
-                Console.WriteLine("Setting timer to null");
+                Logger.Write("Setting timer to null");
                 HeartbeatTimer = null;
-                Console.WriteLine("Stopping poller");
+                Logger.Write("Stopping poller");
                 Poller.Stop();
-                Console.WriteLine("Setting poller to null");
+                Logger.Write("Setting poller to null");
                 Poller = null;
             }
 
-            Console.WriteLine("Base stop to clean up socket");
+            Logger.Write("Base stop to clean up socket");
             base.Stop();
         }
         
