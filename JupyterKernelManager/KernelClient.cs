@@ -28,6 +28,8 @@ namespace JupyterKernelManager
     /// </summary>
     public class KernelClient : IDisposable
     {
+        public const string ABANDONED_CODE_ERROR_MESSAGE =
+            "The Jupyter kernel was unable to complete running one or more lines of code, or is no longer responding.";
         private ILogger Logger { get; set; }
         private IKernelManager Parent { get; set; }
         private IChannelFactory ChannelFactory { get; set; }
@@ -95,6 +97,12 @@ namespace JupyterKernelManager
         /// </summary>
         public bool AllowStdin { get; set; }
 
+        /// <summary>
+        /// Send a chunk of code (it can be more than one command, separated by delimiters and/or
+        /// newlines) to the kernel.  Because of the asynchronous nature of execution, this merely
+        /// sends off the code to be executed - there is no immediate response.
+        /// </summary>
+        /// <param name="code"></param>
         public void Execute(string code)
         {
             var message = ClientSession.CreateMessage(MessageType.ExecuteRequest);
@@ -123,7 +131,8 @@ namespace JupyterKernelManager
         }
 
         /// <summary>
-        /// Get the number of execute requests that have no response yet
+        /// Get the number of execute requests that have no response yet, and that
+        /// we can reasonably expect one for (meaning, not abandoned)
         /// </summary>
         /// <returns></returns>
         public int GetPendingExecuteCount()
@@ -307,7 +316,8 @@ namespace JupyterKernelManager
         }
 
         /// <summary>
-        /// Is there an execution error that we have tracked in our execution log
+        /// Is there an execution error that we have tracked in our execution log.  We also
+        /// consider abandonment as a form of error.
         /// </summary>
         /// <returns>true if there is at least one execution error, false otherwise</returns>
         public bool HasExecuteError()
@@ -321,8 +331,7 @@ namespace JupyterKernelManager
                 }
 
                 return ExecuteLog.Any(
-                    x =>
-                        x.Value.Response.Any(y => y.HasError()));
+                    x => x.Value.Abandoned || x.Value.Response.Any(y => y.HasError()));
             }
         }
 
@@ -340,8 +349,15 @@ namespace JupyterKernelManager
                     return null;
                 }
 
-                var errors = ExecuteLog.SelectMany(x => x.Value.Response.Select(y => y.GetError()));
-                return errors.Where(x => !string.IsNullOrWhiteSpace(x)).ToList();
+                var errors =
+                    ExecuteLog.SelectMany(x => x.Value.Response.Select(y => y.GetError()))
+                        .Where(x => !string.IsNullOrWhiteSpace(x))
+                        .ToList();
+                if (ExecuteLog.Any(x => x.Value.Abandoned))
+                {
+                    errors.Add(ABANDONED_CODE_ERROR_MESSAGE);
+                }
+                return errors;
             }
         }
 

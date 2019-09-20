@@ -218,6 +218,25 @@ namespace Tests
         }
 
         [TestMethod]
+        public void HasExecuteError_AbandonedCode()
+        {
+            var client = new KernelClient(KernelManagerMock.Object, ChannelFactoryMock.Object);
+            Assert.IsFalse(client.HasExecuteError());
+            client.StartChannels();
+            client.ExecuteLog.Add("1", new ExecutionEntry()
+            {
+                Complete = false,
+                Abandoned = true,
+                ExecutionIndex = -1,
+                Request = new Message(null)
+            });
+
+            // If an execution request is flagged as abandoned, we consider that an error
+            // situation and will stop.
+            Assert.IsTrue(client.HasExecuteError());
+        }
+
+        [TestMethod]
         public void GetExecuteErrors_None()
         {
             var client = new KernelClient(KernelManagerMock.Object, ChannelFactoryMock.Object);
@@ -275,6 +294,23 @@ namespace Tests
             Assert.AreEqual(2, client.GetExecuteErrors().Count);
             Assert.AreEqual("TestError: Error message 1", client.GetExecuteErrors().First());
             Assert.AreEqual("TestError: Error message 2", client.GetExecuteErrors().Last());
+        }
+
+        [TestMethod]
+        public void GetExecuteErrors_AbandonedCode()
+        {
+            var client = new KernelClient(KernelManagerMock.Object, ChannelFactoryMock.Object);
+            Assert.IsFalse(client.HasExecuteError());
+            client.StartChannels();
+            client.ExecuteLog.Add("1", new ExecutionEntry()
+            {
+                Complete = false,
+                Abandoned = true,
+                ExecutionIndex = -1,
+                Request = new Message(null)
+            });
+            Assert.AreEqual(1, client.GetExecuteErrors().Count);
+            Assert.AreEqual(KernelClient.ABANDONED_CODE_ERROR_MESSAGE, client.GetExecuteErrors().First());
         }
 
         [TestMethod]
