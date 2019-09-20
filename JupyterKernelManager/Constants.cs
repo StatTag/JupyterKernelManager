@@ -47,6 +47,12 @@ namespace JupyterKernelManager
         public const int Default = Info;
     }
 
+    public class StreamName
+    {
+        public const string StdOut = "stdout";
+        public const string StdErr = "stderr";
+    }
+
     //[JsonConverter(typeof(StringEnumConverter))]
     //public enum ExecutionState
     //{
