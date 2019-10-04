@@ -1,13 +1,8 @@
-﻿using JupyterKernelManager.Protocol;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Dynamic;
-using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace JupyterKernelManager
 {

@@ -212,16 +212,16 @@ namespace JupyterKernelManager
         //    return Encoding.ASCII.GetBytes(JsonConvert.SerializeObject(Raw));
         //}
 
-        internal Message AsReplyTo(Message parent)
-        {
-            // No parent, just return
-            if (parent == null) return this;
+        //internal Message AsReplyTo(Message parent)
+        //{
+        //    // No parent, just return
+        //    if (parent == null) return this;
 
-            var reply = this.MemberwiseClone() as Message;
-            reply.ZmqIdentities = parent.ZmqIdentities;
-            reply.ParentHeader = parent.Header;
-            reply.Header.Session = parent.Header.Session;
-            return reply;
-        }
+        //    var reply = this.MemberwiseClone() as Message;
+        //    reply.ZmqIdentities = parent.ZmqIdentities;
+        //    reply.ParentHeader = parent.Header;
+        //    reply.Header.Session = parent.Header.Session;
+        //    return reply;
+        //}
     }
 }
