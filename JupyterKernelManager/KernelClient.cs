@@ -1,14 +1,10 @@
-﻿using JupyterKernelManager.Protocol;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Dynamic;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
-using NetMQ;
 
 namespace JupyterKernelManager
 {
@@ -28,6 +24,9 @@ namespace JupyterKernelManager
     /// </summary>
     public class KernelClient : IDisposable
     {
+        public const string ABANDONED_CODE_ERROR_MESSAGE =
+            "The Jupyter kernel was unable to complete running one or more lines of code, or is no longer responding.";
+        private ILogger Logger { get; set; }
         private IKernelManager Parent { get; set; }
         private IChannelFactory ChannelFactory { get; set; }
 
@@ -59,14 +58,14 @@ namespace JupyterKernelManager
         private object ExecuteLogSync = new object();
         public Dictionary<string, ExecutionEntry> ExecuteLog { get; private set; }
 
-        public KernelClient(IKernelManager parent, bool autoStartChannels = true)
+        public KernelClient(IKernelManager parent, bool autoStartChannels = true, ILogger logger = null)
         {
-            Initialize(parent, null, autoStartChannels);
+            Initialize(parent, null, autoStartChannels, logger);
         }
 
-        public KernelClient(IKernelManager parent, IChannelFactory channelFactory, bool autoStartChannels = true)
+        public KernelClient(IKernelManager parent, IChannelFactory channelFactory, bool autoStartChannels = true, ILogger logger = null)
         {
-            Initialize(parent, channelFactory, autoStartChannels);
+            Initialize(parent, channelFactory, autoStartChannels, logger);
         }
 
         /// <summary>
@@ -75,12 +74,13 @@ namespace JupyterKernelManager
         /// <param name="parent">The parent kernel manager that created us.</param>
         /// <param name="channelFactory">Factory used to create the various channels</param>
         /// <param name="autoStartChannels">If true, will automatically start the channels to the kernel</param>
-        private void Initialize(IKernelManager parent, IChannelFactory channelFactory, bool autoStartChannels)
+        private void Initialize(IKernelManager parent, IChannelFactory channelFactory, bool autoStartChannels, ILogger logger)
         {
+            this.Logger = logger ?? new DefaultLogger();
             this.Parent = parent;
             this.ClientSession = new Session(Connection.Key);
             this.ExecuteLog = new Dictionary<string, ExecutionEntry>();
-            this.ChannelFactory = channelFactory ?? new ZMQChannelFactory(Connection, ClientSession);
+            this.ChannelFactory = channelFactory ?? new ZMQChannelFactory(Connection, ClientSession, Logger);
 
             if (autoStartChannels)
             {
@@ -93,6 +93,12 @@ namespace JupyterKernelManager
         /// </summary>
         public bool AllowStdin { get; set; }
 
+        /// <summary>
+        /// Send a chunk of code (it can be more than one command, separated by delimiters and/or
+        /// newlines) to the kernel.  Because of the asynchronous nature of execution, this merely
+        /// sends off the code to be executed - there is no immediate response.
+        /// </summary>
+        /// <param name="code"></param>
         public void Execute(string code)
         {
             var message = ClientSession.CreateMessage(MessageType.ExecuteRequest);
@@ -121,14 +127,15 @@ namespace JupyterKernelManager
         }
 
         /// <summary>
-        /// Get the number of execute requests that have no response yet
+        /// Get the number of execute requests that have no response yet, and that
+        /// we can reasonably expect one for (meaning, not abandoned)
         /// </summary>
         /// <returns></returns>
         public int GetPendingExecuteCount()
         {
             lock (ExecuteLogSync)
             {
-                return ExecuteLog.Count(x => !x.Value.Complete);
+                return ExecuteLog.Count(x => (!x.Value.Complete && !x.Value.Abandoned));
             }
         }
 
@@ -189,7 +196,6 @@ namespace JupyterKernelManager
                     Name = "StdIn Channel"
                 };
                 StdInThread.Start();
-
             }
             else
             {
@@ -236,10 +242,8 @@ namespace JupyterKernelManager
                     // that a response is back.
                     var messageType = nextMessage.Header.MessageType;
                     bool isExecuteReply = messageType.Equals(MessageType.ExecuteReply);
-                    bool isExecuteResult = messageType.Equals(MessageType.ExecuteResult);
-                    bool isStream = messageType.Equals(MessageType.Stream);
-                    bool isDisplayData = messageType.Equals(MessageType.DisplayData);
-                    if (isExecuteReply || isStream || isExecuteResult || isDisplayData)
+                    bool hasData = nextMessage.IsDataMessageType();
+                    if (isExecuteReply || hasData)
                     {
                         lock (ExecuteLogSync)
                         {
@@ -267,16 +271,89 @@ namespace JupyterKernelManager
             }
             catch (ProtocolViolationException ex)
             {
-                Console.WriteLine("Protocol violation when trying to receive next ZeroMQ message.");
-                return;
+                Logger.Write("Protocol violation when trying to receive next ZeroMQ message: {0}", ex.Message);
             }
-            catch (ThreadInterruptedException)
+            catch (ThreadInterruptedException tie)
             {
-                 return;
+                // We anticipate this and don't want to do anything
             }
-            catch (SocketException)
+            catch (SocketException se)
             {
-                 return;
+                Logger.Write("Socket exception {0}", se.Message);
+            }
+            finally
+            {
+                // If we get here, we aren't expecting any more responses from the communication channel.  Hopefully
+                // we're in the happy path and everything is done, but if not we will abandon outstanding requests
+                // that haven't finished.
+                AbandonOutstandingExecuteLogEntries();
+            }
+        }
+
+        /// <summary>
+        /// Any outstanding entries in the execution log are going to be marked as abandoned.  This will
+        /// signal that we are no longer expecting any results, due to some error.
+        /// </summary>
+        public void AbandonOutstandingExecuteLogEntries()
+        {
+            lock (ExecuteLogSync)
+            {
+                if (ExecuteLog == null || ExecuteLog.Count == 0)
+                {
+                    return;
+                }
+
+                // For any item that is not yet completed, we will mark it as abandoned.
+                foreach (var item in ExecuteLog.Values.Where(x => !x.Complete))
+                {
+                    item.Abandoned = true;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Is there an execution error that we have tracked in our execution log.  We also
+        /// consider abandonment as a form of error.
+        /// </summary>
+        /// <returns>true if there is at least one execution error, false otherwise</returns>
+        public bool HasExecuteError()
+        {
+            lock (ExecuteLogSync)
+            {
+                // If we have nothing in the execution log, there can't be an error.
+                if (ExecuteLog == null || ExecuteLog.Count == 0)
+                {
+                    return false;
+                }
+
+                return ExecuteLog.Any(
+                    x => x.Value.Abandoned || x.Value.Response.Any(y => y.HasError()));
+            }
+        }
+
+        /// <summary>
+        /// Return a formatted string containing all of the error messages
+        /// </summary>
+        /// <returns></returns>
+        public List<string> GetExecuteErrors()
+        {
+            lock (ExecuteLogSync)
+            {
+                // If we have nothing in the execution log, there can't be an error.
+                if (ExecuteLog == null || ExecuteLog.Count == 0)
+                {
+                    return null;
+                }
+
+                var errors =
+                    ExecuteLog.SelectMany(x => x.Value.Response.Select(y => y.GetError()))
+                        .Where(x => !string.IsNullOrWhiteSpace(x))
+                        .ToList();
+                if (ExecuteLog.Any(x => x.Value.Abandoned))
+                {
+                    errors.Add(ABANDONED_CODE_ERROR_MESSAGE);
+                }
+                return errors;
             }
         }
 
@@ -386,18 +463,24 @@ namespace JupyterKernelManager
         {
             get
             {
-                if (Parent != null)
+                // This KernelClient was created by a KernelManager, and so
+                // we can ask the parent KernelManager.  If it's not alive, we can
+                // stop already.
+                if (Parent != null && !Parent.IsAlive)
                 {
-                    // This KernelClient was created by a KernelManager, and so
-                    // we can ask the parent KernelManager:
-                    return Parent.IsAlive;
+                    return false;
                 }
 
+                // Next, check to see if the heartbeat is there.
                 if (_HbChannel != null && _HbChannel is HeartbeatChannel)
                 {
-                    // We don't have access to the KernelManager,
-                    // so we use the heartbeat.
-                    return ((HeartbeatChannel)_HbChannel).IsBeating;
+                    // We only check the heartbeat status if the channel is alive.  If it's not alive, it means
+                    // the heartbeat isn't established yet, and we might get a false negative.
+                    var channel = _HbChannel as HeartbeatChannel;
+                    if (channel.IsAlive)
+                    {
+                        return channel.IsBeating;
+                    }
                 }
 
                 // no heartbeat and not local, we can't tell if it's running,
@@ -424,7 +507,5 @@ namespace JupyterKernelManager
         {
             StopChannels();
         }
-
-        // TODO - https://github.com/jupyter/jupyter_client/blob/1cec38633c049d916f5e65d4d74129737ee9851e/jupyter_client/client.py#L200
     }
 }

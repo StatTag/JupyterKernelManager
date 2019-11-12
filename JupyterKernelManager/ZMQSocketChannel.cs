@@ -1,14 +1,11 @@
-﻿using JupyterKernelManager.Protocol;
+﻿using Microsoft.Jupyter.Core;
 using NetMQ;
 using Newtonsoft.Json;
 using System;
-using Microsoft.Jupyter.Core;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
-using System.Security.Cryptography;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace JupyterKernelManager
 {
@@ -20,14 +17,19 @@ namespace JupyterKernelManager
         public const string JUPYTER_KERNEL_DELIMITER = "<IDS|MSG>";
 
         /// <summary>
+        /// The logger for this class
+        /// </summary>
+        public ILogger Logger { get; set; }
+
+        /// <summary>
         /// Internal object to synchronize access to our <see cref="Socket">Socket</see>.
         /// </summary>
-        private object syncObj = new object();
+        protected object syncObj = new object();
 
         public string Name { get; set; }
         public NetMQSocket Socket { get; set; }
 
-        private object sessionSync = new object();
+        protected object sessionSync = new object();
         public Session Session { get; set; }
         public bool IsAlive { get; set; }
         public Encoding Encoding { get; private set; }
@@ -37,19 +39,21 @@ namespace JupyterKernelManager
         /// </summary>
         /// <param name="name">An identifying name for the channel</param>
         /// <param name="socket">The NetMQ socket to use</param>
-        /// <param name="ioloop">The zmq IO loop to connect the socket to using a ZMQStream</param>
-        public ZMQSocketChannel(string name, NetMQSocket socket, Session session)
+        /// <param name="session">The session to connect the socket to</param>
+        /// <param name="logger">A specific logger implementation (if any) to use</param>
+        public ZMQSocketChannel(string name, NetMQSocket socket, Session session, ILogger logger = null)
         {
             Name = name;
             Socket = socket;
             Session = session.Clone() as Session;
             Encoding = Encoding.UTF8;
+            Logger = logger ?? new DefaultLogger();
         }
 
         /// <summary>
         /// Start up the socket channel
         /// </summary>
-        public void Start()
+        public virtual void Start()
         {
             IsAlive = true;
         }
@@ -58,7 +62,7 @@ namespace JupyterKernelManager
         /// Close the socket and clean it up.  Once called, the underlying socket is no
         /// longer accessible or usable.
         /// </summary>
-        public void Stop()
+        public virtual void Stop()
         {
             IsAlive = false;
 
@@ -155,7 +159,7 @@ namespace JupyterKernelManager
         /// <param name="rawFrames"></param>
         /// <param name="encoding"></param>
         /// <returns></returns>
-        private Message ProcessResults(List<byte[]> rawFrames)
+        protected Message ProcessResults(List<byte[]> rawFrames)
         {
             var frames = rawFrames
                 .Select(frame => Encoding.GetString(frame))
@@ -168,8 +172,6 @@ namespace JupyterKernelManager
             {
                 throw new ProtocolViolationException("Expected <IDS|MSG> delimiter, but none was present.");
             }
-
-            //var message = new Message(frames);
 
             // At this point, we know that everything before idxDelimter is
             // a ZMQ identity, and that everything after follows the Jupyter
@@ -225,7 +227,7 @@ namespace JupyterKernelManager
                 Content = JsonConvert.DeserializeObject(frames[idxDelimiter + 5])
             };
 
-            Console.WriteLine("Receive on {0} for {1}", Name, header.MessageType);
+            Logger.Write("Receive on {0} for {1}", Name, header.MessageType);
 
             return message;
         }

@@ -9,6 +9,7 @@ namespace JupyterKernelManager
     public class ExecutionEntry
     {
         public bool Complete { get; set; }
+        public bool Abandoned { get; set; }
         public int ExecutionIndex { get; set; }
         public Message Request { get; set; }
         public List<Message> Response { get; set; }

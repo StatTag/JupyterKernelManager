@@ -13,6 +13,19 @@ namespace LocalTest
 {
     class Program
     {
+        class ConsoleLogger : ILogger
+        {
+            public void Write(string message, params object[] parameters)
+            {
+                Write(LogLevel.Default, message, parameters);
+            }
+
+            public void Write(int logLevel, string message, params object[] parameters)
+            {
+                Console.WriteLine(message, parameters);
+            }
+        }
+
         static void Main(string[] args)
         {
             var manager = new KernelSpecManager();
@@ -50,7 +63,7 @@ namespace LocalTest
         static void RunKernel(string name, string[] code)
         {
             Console.WriteLine("{0} Kernel", name);
-            using (var kernelManager = new KernelManager(name))
+            using (var kernelManager = new KernelManager(name, new ConsoleLogger()))
             {
                 kernelManager.StartKernel();
                 using (var client = kernelManager.CreateClient())
@@ -61,7 +74,7 @@ namespace LocalTest
                         client.Execute(block);
                     }
 
-                    while (client.HasPendingExecute())
+                    while (client.HasPendingExecute() && client.IsAlive)
                     {
                         Pause();
                     }
@@ -74,17 +87,24 @@ namespace LocalTest
                         Console.WriteLine(entry.Request.Content.code);
                         Console.WriteLine();
 
-                        var dataResponse = entry.Response.FirstOrDefault(
-                            x => x.Header.MessageType.Equals(MessageType.DisplayData) ||
-                                 x.Header.MessageType.Equals(MessageType.Stream) ||
-                                 x.Header.MessageType.Equals(MessageType.ExecuteResult));
-                        if (dataResponse == null)
+                        if (entry.Abandoned)
                         {
-                            Console.WriteLine("  ( No data returned for this code block )");
+                            Console.WriteLine("  !! This code had to be abandoned !!");
                         }
                         else
                         {
-                            Console.WriteLine(dataResponse.Content);
+                            var dataResponse = entry.Response.FirstOrDefault(
+                                x => x.Header.MessageType.Equals(MessageType.DisplayData) ||
+                                     x.Header.MessageType.Equals(MessageType.Stream) ||
+                                     x.Header.MessageType.Equals(MessageType.ExecuteResult));
+                            if (dataResponse == null)
+                            {
+                                Console.WriteLine("  ( No data returned for this code block )");
+                            }
+                            else
+                            {
+                                Console.WriteLine(dataResponse.Content);
+                            }
                         }
 
                         Console.WriteLine("--------------------------------------------------\r\n");

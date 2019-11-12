@@ -1,13 +1,8 @@
-﻿using JupyterKernelManager.Protocol;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Dynamic;
-using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace JupyterKernelManager
 {
@@ -94,7 +89,6 @@ namespace JupyterKernelManager
         /// <param name="keyFile"></param>
         private void Initialize(bool debug, string sessionId, string username, byte[] key)
         {
-            // TODO: Implement defaults (see https://github.com/jupyter/jupyter_client/blob/4da42519adba668282dceb0eb9ddcc9dafb40d12/jupyter_client/session.py)
             CheckPid = true;
 
             if (string.IsNullOrWhiteSpace(sessionId))

@@ -56,5 +56,42 @@ namespace Tests
                 Assert.AreNotEqual("{}", Encoding.UTF8.GetString(frame));
             }
         }
+
+        [TestMethod]
+        public void HasError_Default()
+        {
+            var message = new Message(MessageSession);
+            Assert.IsFalse(message.HasError());
+        }
+
+        [TestMethod]
+        public void HasError_Yes()
+        {
+            // Proper error message
+            dynamic content = new ExpandoObject();
+            content.status = ExecuteStatus.Error;
+            var message = new Message(MessageSession, content);
+            Assert.IsTrue(message.HasError());
+
+            // In this case, anything that's not "OK" is an error
+            content.status = "blah";
+            message = new Message(MessageSession, content);
+            Assert.IsTrue(message.HasError());
+        }
+
+        [TestMethod]
+        public void HasError_No()
+        {
+            // Proper error message
+            dynamic content = new ExpandoObject();
+            content.status = ExecuteStatus.Ok;
+            var message = new Message(MessageSession, content);
+            Assert.IsFalse(message.HasError());
+
+            // If the kernel didn't set it, we're going to assume it's okay
+            content.status = string.Empty;
+            message = new Message(MessageSession, content);
+            Assert.IsFalse(message.HasError()); 
+        }
     }
 }
