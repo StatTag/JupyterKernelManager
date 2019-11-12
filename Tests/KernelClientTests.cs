@@ -16,6 +16,23 @@ namespace Tests
         {
             return new Message()
             {
+                Content = JsonConvert.DeserializeObject("{ \"status\": \"ok\" }")
+            };
+        }
+
+        /// <summary>
+        /// Json.NET allows some JSON that is technically not valid, per the formal
+        /// specification.  This is just to confirm that we can handle that, even though
+        /// we're not necessarily required to.
+        /// 
+        /// Also, this may not be the best place to document this, but it was discovered
+        /// from tests here, and so we're putting the test here for now.
+        /// </summary>
+        /// <returns></returns>
+        private static Message GetSuccessMessageLooselyValidJson()
+        {
+            return new Message()
+            {
                 Content = JsonConvert.DeserializeObject("{ status: 'ok' }")
             };
         }
@@ -26,14 +43,14 @@ namespace Tests
             {
                 return new Message()
                 {
-                    Content = JsonConvert.DeserializeObject("{ status: 'error' }")
+                    Content = JsonConvert.DeserializeObject("{ \"status\": \"error\" }")
                 };
             }
             else
             {
                 return new Message()
                 {
-                    Content = JsonConvert.DeserializeObject(string.Format("{{ status: 'error', ename: 'TestError', evalue: '{0}'}}", errorMessage))
+                    Content = JsonConvert.DeserializeObject(string.Format("{{ \"status\": \"error\", \"ename\": \"TestError\", \"evalue\": \"{0}\"}}", errorMessage))
                 };
             }
         }
@@ -126,6 +143,25 @@ namespace Tests
                 Response = new List<Message>()
                 {
                     GetSuccessMessage()
+                }
+            });
+            Assert.IsFalse(client.HasExecuteError());
+        }
+
+        [TestMethod]
+        public void HasExecuteError_NoError_LooselyValidJson()
+        {
+            var client = new KernelClient(KernelManagerMock.Object, ChannelFactoryMock.Object);
+            Assert.IsFalse(client.HasExecuteError());
+            client.StartChannels();
+            client.ExecuteLog.Add("1", new ExecutionEntry()
+            {
+                Complete = true,
+                ExecutionIndex = 1,
+                Request = new Message(null),
+                Response = new List<Message>()
+                {
+                    GetSuccessMessageLooselyValidJson()
                 }
             });
             Assert.IsFalse(client.HasExecuteError());
