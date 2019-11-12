@@ -61,8 +61,6 @@ namespace JupyterKernelManager
 
         public MessageHeader Header { get; set; }
 
-        private static readonly object EmptyFrameObject = JsonConvert.DeserializeObject(EMPTY_FRAME);
-
         // As per Jupyter's wire protocol, if messages occur in sequence,
         // each message will have the previous message's header in this field.
         public MessageHeader ParentHeader { get; set; }
@@ -185,43 +183,16 @@ namespace JupyterKernelManager
         public List<byte[]> SerializeFrames()
         {
             var frames = new List<byte[]>();
-            frames.Add(Encoding.UTF8.GetBytes(
-                JsonConvert.SerializeObject(Header ?? EmptyFrameObject)));
-            frames.Add(Encoding.UTF8.GetBytes(
-                JsonConvert.SerializeObject(ParentHeader ?? EmptyFrameObject)));
-            frames.Add(Encoding.UTF8.GetBytes(
-                JsonConvert.SerializeObject(Metadata ?? EmptyFrameObject)));
-            frames.Add(Encoding.UTF8.GetBytes(
-                JsonConvert.SerializeObject(Content ?? EmptyFrameObject)));
+            frames.Add(Encoding.UTF8.GetBytes(Header == null ? EMPTY_FRAME :
+                JsonConvert.SerializeObject(Header)));
+            frames.Add(Encoding.UTF8.GetBytes(ParentHeader == null ? EMPTY_FRAME :
+                JsonConvert.SerializeObject(ParentHeader)));
+            frames.Add(Encoding.UTF8.GetBytes(Metadata == null ? EMPTY_FRAME :
+                JsonConvert.SerializeObject(Metadata)));
+            frames.Add(Encoding.UTF8.GetBytes(Content == null ? EMPTY_FRAME :
+                JsonConvert.SerializeObject(Content)));
 
             return frames.ToList();
         }
-
-        //public Message(Message message)
-        //{
-        //    Data = message.Raw;
-        //}
-
-        //public byte[] Serialize()
-        //{
-        //    if (Raw == null)
-        //    {
-        //        return null;
-        //    }
-
-        //    return Encoding.ASCII.GetBytes(JsonConvert.SerializeObject(Raw));
-        //}
-
-        //internal Message AsReplyTo(Message parent)
-        //{
-        //    // No parent, just return
-        //    if (parent == null) return this;
-
-        //    var reply = this.MemberwiseClone() as Message;
-        //    reply.ZmqIdentities = parent.ZmqIdentities;
-        //    reply.ParentHeader = parent.Header;
-        //    reply.Header.Session = parent.Header.Session;
-        //    return reply;
-        //}
     }
 }
