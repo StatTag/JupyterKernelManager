@@ -256,12 +256,12 @@ namespace JupyterKernelManager
                             var messageId = nextMessage.ParentHeader.Id;
                             if (ExecuteLog.ContainsKey(messageId))
                             {
-                                ExecuteLog[messageId].Complete = true;
                                 ExecuteLog[messageId].Response.Add(nextMessage);
 
                                 // If we have an execution reply, we can get the execution index from the message
                                 if (isExecuteReply)
                                 {
+                                    ExecuteLog[messageId].Complete = true;
                                     ExecuteLog[messageId].ExecutionIndex = nextMessage.Content.execution_count;
                                 }
                             }
