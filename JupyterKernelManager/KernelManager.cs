@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Dynamic;
+using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -307,8 +309,81 @@ namespace JupyterKernelManager
                 CreateNoWindow = true,
                 UseShellExecute = false
             };
+            info = AdjustLaunchCommandForAnaconda(info);
             var process = Process.Start(info);
             return process;
+        }
+
+        /// <summary>
+        /// Perform a safe test launching a process given a process/command and arguments.
+        /// </summary>
+        /// <param name="process">The process/command to run (e.g., C:\Path\program.exe)</param>
+        /// <param name="arguments">Optional command line arguments for the process (e.g., -h -r)</param>
+        /// <returns>true if the process launched, false otherwise</returns>
+        public static bool TestLaunchProcess(string process, string arguments)
+        {
+            var processInfo = new ProcessStartInfo(process, arguments)
+                { CreateNoWindow = true, UseShellExecute = false  };
+
+            try
+            {
+                var pythonProcess = Process.Start(processInfo);
+                if (pythonProcess != null)
+                {
+                    pythonProcess.WaitForExit(1000);
+                }
+            }
+            catch (Exception exc)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Determine if we need to adjust the Jupyter kernel path to get this to launch in an Anaconda-only
+        /// installation.  This is currently isolated to Python-based kernels that are launched.
+        /// </summary>
+        /// <param name="info">The original process information created to launch the kernel</param>
+        /// <returns>The corrected process information and arguments if modified, or the original process information</returns>
+        public static ProcessStartInfo AdjustLaunchCommandForAnaconda(ProcessStartInfo info)
+        {
+            // The special processing is for Anaconda installations of Python.  Let's see if we fall into that bucket.
+            var anacondaPythonPath = KernelManager.GetAnacondaPythonPath();
+            if (!string.IsNullOrWhiteSpace(anacondaPythonPath) && Directory.Exists(anacondaPythonPath))
+            {
+                // We have an Anaconda path.  Now let's see if we can launch Python from the command line.
+                // If we can, we're going to assume the environment is all set.  If not, we will assume we
+                // need to use our special Anaconda startup.
+                if (!TestLaunchProcess("python.exe", "-h"))
+                {
+                    var newArguments = string.Format("/C {0}\\condabin\\activate.bat {0} & {0}\\python.exe {1}", anacondaPythonPath, info.Arguments);
+                    if (TestLaunchProcess("cmd.exe", newArguments + " -h"))
+                    {
+                        info.FileName = "cmd.exe";
+                        info.Arguments = newArguments;
+                    }
+                }
+            }
+
+            return info;
+        }
+
+        /// <summary>
+        /// Utility method to retrieve an Anaconda python path, if one exists.
+        /// </summary>
+        /// <returns></returns>
+        private static string GetAnacondaPythonPath()
+        {
+            var regSvc = new RegistryService();
+            var key = regSvc.FindFirstDescendantKeyMatching("SOFTWARE\\Python", "Anaconda");
+            if (key != null)
+            {
+                return regSvc.GetStringValue(key + "\\" + "InstallPath", null);
+            }
+
+            return null;
         }
 
         /// <summary>
