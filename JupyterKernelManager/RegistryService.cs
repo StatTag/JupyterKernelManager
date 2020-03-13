@@ -1,9 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Security.Cryptography.X509Certificates;
-using System.Text;
-using System.Threading.Tasks;
 using JupyterKernelManager.Interfaces;
 using Microsoft.Win32;
 
@@ -19,10 +14,11 @@ namespace JupyterKernelManager
         /// <returns>The name of the matching key, if one is found.  Null otherwise</returns>
         public string FindFirstDescendantKeyMatching(string parentKey, string match)
         {
-            var subKey = FindFirstDescendantKeyMatching(RegistryHive.LocalMachine, parentKey, match);
+            var view = (Environment.Is64BitProcess) ? RegistryView.Registry64 : RegistryView.Registry32;
+            var subKey = FindFirstDescendantKeyMatching(RegistryHive.LocalMachine, view, parentKey, match);
             if (subKey == null)
             {
-                subKey = FindFirstDescendantKeyMatching(RegistryHive.CurrentUser, parentKey, match);
+                subKey = FindFirstDescendantKeyMatching(RegistryHive.CurrentUser, view, parentKey, match);
             }
             return subKey;
         }
@@ -38,9 +34,9 @@ namespace JupyterKernelManager
             return (string)Registry.GetValue(keyName, valueName, "");
         }
 
-        private string FindFirstDescendantKeyMatching(RegistryHive rootKey, string parentKey, string match)
+        private string FindFirstDescendantKeyMatching(RegistryHive rootKey, RegistryView view, string parentKey, string match)
         {
-            var key = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Default);
+            var key = RegistryKey.OpenBaseKey(rootKey, view);
             var keyParts = parentKey.Split(new []{'\\'});
             for (var index = 0; index < keyParts.Length; index++)
             {
@@ -51,7 +47,8 @@ namespace JupyterKernelManager
                 }
             }
 
-            return GetDescendantKeyMatching(key, match).Name;
+            var matchKey = GetDescendantKeyMatching(key, match);
+            return (matchKey == null) ? null : matchKey.Name;
         }
 
         private RegistryKey GetDescendantKeyMatching(RegistryKey key, string match)

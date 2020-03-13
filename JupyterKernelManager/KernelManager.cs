@@ -53,6 +53,27 @@ namespace JupyterKernelManager
         private bool ShutdownSuccess { get; set; }
         private object ShutdownSync = new object();
 
+        private bool debug = false;
+
+        public bool Debug
+        {
+            get { return debug; }
+            set
+            {
+                // If it's not changed, don't do anything different
+                if (value == debug)
+                {
+                    return;
+                }
+
+                // If we're turning debugging off or turning it on, either way we want to create
+                // the DebugLog builder
+                DebugLog = new StringBuilder();
+                debug = value;
+            }
+        }
+        public StringBuilder DebugLog { get; set; }
+
         /// <summary>
         /// Construct a manager for a given Jupyter kernel
         /// </summary>
@@ -81,6 +102,8 @@ namespace JupyterKernelManager
             this.Spec = SpecManager.GetKernelSpec(kernelName);
             this.ConnectionInformation = new KernelConnection();
             this.ChannelFactory = channelFactory;
+
+            this.Debug = false;
         }
 
         /// <summary>
@@ -104,6 +127,14 @@ namespace JupyterKernelManager
             ControlChannel = null;
             ControlThread = null;
             Kernel = null;
+        }
+
+        private void WriteDebugLog(string message)
+        {
+            if (Debug)
+            {
+                DebugLog.AppendLine(message);
+            }
         }
 
         /// <summary>
@@ -304,12 +335,15 @@ namespace JupyterKernelManager
         /// <returns>Popen instance for the kernel subprocess</returns>
         private Process LaunchKernel(List<string> cmd, IDictionary<string, string> env, Dictionary<string, List<string>> kw)
         {
+            if (Debug) { WriteDebugLog(string.Format("Launching command {0}", cmd[0])); }
             var info = new ProcessStartInfo(cmd[0], string.Join(" ", cmd.Skip(1)))
             {
-                CreateNoWindow = true,
+                CreateNoWindow = !Debug,  // Lots of negatives here.  If we're debugging, we want a window (not no window).
                 UseShellExecute = false
             };
             info = AdjustLaunchCommandForAnaconda(info);
+
+            if (Debug) { WriteDebugLog(string.Format("Actually launching:\r\n{0}\r\n{1}", info.FileName, info.Arguments)); }
             var process = Process.Start(info);
             return process;
         }
@@ -320,10 +354,10 @@ namespace JupyterKernelManager
         /// <param name="process">The process/command to run (e.g., C:\Path\program.exe)</param>
         /// <param name="arguments">Optional command line arguments for the process (e.g., -h -r)</param>
         /// <returns>true if the process launched, false otherwise</returns>
-        public static bool TestLaunchProcess(string process, string arguments)
+        public bool TestLaunchProcess(string process, string arguments)
         {
             var processInfo = new ProcessStartInfo(process, arguments)
-                { CreateNoWindow = true, UseShellExecute = false  };
+                { CreateNoWindow = !Debug, UseShellExecute = false  };
 
             try
             {
@@ -335,6 +369,7 @@ namespace JupyterKernelManager
             }
             catch (Exception exc)
             {
+                if (Debug) { WriteDebugLog(string.Format("Exception test launching:\r\n{0}\r\n{1}", process, arguments)); }
                 return false;
             }
 
@@ -347,7 +382,7 @@ namespace JupyterKernelManager
         /// </summary>
         /// <param name="info">The original process information created to launch the kernel</param>
         /// <returns>The corrected process information and arguments if modified, or the original process information</returns>
-        public static ProcessStartInfo AdjustLaunchCommandForAnaconda(ProcessStartInfo info)
+        public ProcessStartInfo AdjustLaunchCommandForAnaconda(ProcessStartInfo info)
         {
             // The special processing is for Anaconda installations of Python.  Let's see if we fall into that bucket.
             var anacondaPythonPath = KernelManager.GetAnacondaPythonPath();
