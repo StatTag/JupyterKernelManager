@@ -412,7 +412,7 @@ namespace JupyterKernelManager
         private static string GetAnacondaPythonPath()
         {
             var regSvc = new RegistryService();
-            var key = regSvc.FindFirstDescendantKeyMatching("SOFTWARE\\Python", "Anaconda");
+            var key = regSvc.FindFirstDescendantKeyNameMatching("SOFTWARE\\Python", "Anaconda");
             if (key != null)
             {
                 return regSvc.GetStringValue(key + "\\" + "InstallPath", null);

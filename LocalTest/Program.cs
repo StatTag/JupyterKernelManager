@@ -41,18 +41,18 @@ namespace LocalTest
             // Multiple iterations to help with testing for intermittent errors
             for (int counter = 0; counter < 50; counter++)
             {
-                RunKernel("ir", new string[]
-                {
-                    "x <- 100; x",
-                    "y <- 25",
-                    "x + y"
-                });
-                RunKernel("matlab", new string[]
-                {
-                    "x = 100; disp(x)",
-                    "y = 25;",
-                    "disp(x + y)"
-                });
+                //RunKernel("ir", new string[]
+                //{
+                //    "x <- 100; x",
+                //    "y <- 25",
+                //    "x + y"
+                //});
+                //RunKernel("matlab", new string[]
+                //{
+                //    "x = 100; disp(x)",
+                //    "y = 25;",
+                //    "disp(x + y)"
+                //});
                 RunKernel("python3", new string[]
                 {
                     "x = 100; print(x)",

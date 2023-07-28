@@ -12,7 +12,13 @@ namespace JupyterKernelManager
         /// <param name="parentKey">Where to start looking.  Do not include the base part of the key, since multiple will be tried.</param>
         /// <param name="match">The substring to match against in a case-insensitive manner</param>
         /// <returns>The name of the matching key, if one is found.  Null otherwise</returns>
-        public string FindFirstDescendantKeyMatching(string parentKey, string match)
+        public string FindFirstDescendantKeyNameMatching(string parentKey, string match)
+        {
+            var key = FindFirstDescendantKeyMatching(parentKey, match);
+            return (key == null) ? null : key.Name;
+        }
+
+        public RegistryKey FindFirstDescendantKeyMatching(string parentKey, string match)
         {
             var view = (Environment.Is64BitProcess) ? RegistryView.Registry64 : RegistryView.Registry32;
             var subKey = FindFirstDescendantKeyMatching(RegistryHive.LocalMachine, view, parentKey, match);
@@ -34,10 +40,10 @@ namespace JupyterKernelManager
             return (string)Registry.GetValue(keyName, valueName, "");
         }
 
-        private string FindFirstDescendantKeyMatching(RegistryHive rootKey, RegistryView view, string parentKey, string match)
+        private RegistryKey FindFirstDescendantKeyMatching(RegistryHive rootKey, RegistryView view, string parentKey, string match)
         {
             var key = RegistryKey.OpenBaseKey(rootKey, view);
-            var keyParts = parentKey.Split(new []{'\\'});
+            var keyParts = parentKey.Split(new[] { '\\' });
             for (var index = 0; index < keyParts.Length; index++)
             {
                 key = key.OpenSubKey(keyParts[index]);
@@ -47,7 +53,12 @@ namespace JupyterKernelManager
                 }
             }
 
-            var matchKey = GetDescendantKeyMatching(key, match);
+            return GetDescendantKeyMatching(key, match);
+        }
+
+        private string FindFirstDescendantKeyNameMatching(RegistryHive rootKey, RegistryView view, string parentKey, string match)
+        {
+            var matchKey = FindFirstDescendantKeyMatching(rootKey, view, parentKey, match);
             return (matchKey == null) ? null : matchKey.Name;
         }
 

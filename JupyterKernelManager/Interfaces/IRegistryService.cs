@@ -9,6 +9,7 @@ namespace JupyterKernelManager.Interfaces
 {
     public interface IRegistryService
     {
-        string FindFirstDescendantKeyMatching(string parentKey, string match);
+        string FindFirstDescendantKeyNameMatching(string parentKey, string match);
+        RegistryKey FindFirstDescendantKeyMatching(string parentKey, string match);
     }
 }
