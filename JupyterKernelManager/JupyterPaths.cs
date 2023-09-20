@@ -1,4 +1,5 @@
-﻿using System;
+﻿using JupyterKernelManager.Interfaces;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -10,6 +11,7 @@ namespace JupyterKernelManager
     public class JupyterPaths
     {
         private Dictionary<string, string> tempDirectories = new Dictionary<string, string>();
+        private IRegistryService registryService = new RegistryService();
 
         public List<string> GetPath(string subdirs = "")
         {
@@ -25,6 +27,15 @@ namespace JupyterKernelManager
             // then user dir
             paths.Add(GetDataDir());
 
+            // Workaround needed for C# - Jupyter has access to sys.prefix, which gives it
+            // the location of Python.  We don't have that, so we have to do a search in
+            // the registry.
+            var pythonDir = GetPythonJupyterDir();
+            if (!string.IsNullOrEmpty(pythonDir))
+            {
+                paths.Add(pythonDir);
+            }
+
             // finally, system
             paths.Add(GetSystemPath());
 
@@ -37,6 +48,27 @@ namespace JupyterKernelManager
             }
 
             return paths;
+        }
+
+        public string GetPythonJupyterDir()
+        {
+            var key = registryService.FindFirstDescendantKeyMatching("SOFTWARE\\Python", "PythonCore");
+            if (key == null)
+            {
+                return null;
+            }
+
+            foreach (var pythonKeyName in key.GetSubKeyNames())
+            {
+                var pythonKey = key.OpenSubKey(pythonKeyName + "\\InstallPath");
+                if (pythonKey != null)
+                {
+                    var path = pythonKey.GetValue("").ToString(); // Get the default value
+                    return Path.Combine(path, "share\\jupyter");
+                }
+            }
+
+            return null;
         }
 
         /// <summary>

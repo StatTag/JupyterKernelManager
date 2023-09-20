@@ -47,12 +47,12 @@ namespace LocalTest
                     "y <- 25",
                     "x + y"
                 });
-                RunKernel("matlab", new string[]
-                {
-                    "x = 100; disp(x)",
-                    "y = 25;",
-                    "disp(x + y)"
-                });
+                //RunKernel("matlab", new string[]
+                //{
+                //    "x = 100; disp(x)",
+                //    "y = 25;",
+                //    "disp(x + y)"
+                //});
                 RunKernel("python3", new string[]
                 {
                     "x = 100; print(x)",
@@ -67,8 +67,9 @@ namespace LocalTest
             Console.WriteLine("{0} Kernel", name);
             using (var kernelManager = new KernelManager(name, new ConsoleLogger()))
             {
+                kernelManager.Debug = true;
                 kernelManager.StartKernel();
-                using (var client = kernelManager.CreateClient())
+                using (var client = kernelManager.CreateClientAndWaitForConnection(3, 5))
                 {
 
                     foreach (var block in code)

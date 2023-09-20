@@ -58,6 +58,17 @@ namespace JupyterKernelManager
         private object ExecuteLogSync = new object();
         public Dictionary<string, ExecutionEntry> ExecuteLog { get; private set; }
 
+        /// <summary>
+        /// Provide a status flag if we are connected successfully to a kernel.
+        /// For now, this will be determiney by receiving a message on IoPub.
+        /// </summary>
+        /// <remarks>
+        /// Taken from:
+        /// https://github.com/jupyter/jupyter_client/issues/593
+        /// https://github.com/digitalsignalperson/comma-python/issues/1
+        /// </remarks>
+        public bool IsKernelConnected { get; set; }
+
         public KernelClient(IKernelManager parent, bool autoStartChannels = true, ILogger logger = null)
         {
             Initialize(parent, null, autoStartChannels, logger);
@@ -81,6 +92,7 @@ namespace JupyterKernelManager
             this.ClientSession = new Session(Connection.Key);
             this.ExecuteLog = new Dictionary<string, ExecutionEntry>();
             this.ChannelFactory = channelFactory ?? new ZMQChannelFactory(Connection, ClientSession, Logger);
+            this.IsKernelConnected = false;
 
             if (autoStartChannels)
             {
@@ -218,6 +230,8 @@ namespace JupyterKernelManager
         {
             try
             {
+                Logger.Write("Starting event loop for channel {0}", channel.Name);
+
                 while (this.IsAlive)
                 {
                     // Try to get the next response message from the kernel.  Note that we are using the non-blocking,
@@ -226,6 +240,14 @@ namespace JupyterKernelManager
                     if (nextMessage == null)
                     {
                         continue;
+                    }
+
+                    if (!this.IsKernelConnected)
+                    {
+                        if (channel == IoPubChannel)
+                        {
+                            this.IsKernelConnected = true;
+                        }
                     }
 
                     // If this is our first message, we need to set the session id.

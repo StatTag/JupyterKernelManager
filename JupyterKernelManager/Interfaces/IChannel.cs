@@ -14,6 +14,8 @@ namespace JupyterKernelManager
         Message TryReceive();
         Message Receive();
 
+        string Name { get;  }
+
         bool IsAlive { get; set; }
     }
 }

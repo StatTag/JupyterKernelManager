@@ -249,6 +249,12 @@ namespace JupyterKernelManager
 
             Kernel = LaunchKernel(kernelCmd, env, kw);
 
+            // Some recommendations have been to give the kernel process half a second
+            // to get established, otherwise we run the risk of trying to connect our
+            // sockets to it and nothing is there.
+            // https://github.com/zeromq/netmq/issues/482
+            Thread.Sleep(500);
+
             this.ClientSession = new Session(ConnectionInformation.Key);
             this.ChannelFactory = this.ChannelFactory ?? new ZMQChannelFactory(ConnectionInformation, ClientSession, Logger);
             CreateControlChannel();
@@ -412,7 +418,7 @@ namespace JupyterKernelManager
         private static string GetAnacondaPythonPath()
         {
             var regSvc = new RegistryService();
-            var key = regSvc.FindFirstDescendantKeyMatching("SOFTWARE\\Python", "Anaconda");
+            var key = regSvc.FindFirstDescendantKeyNameMatching("SOFTWARE\\Python", "Anaconda");
             if (key != null)
             {
                 return regSvc.GetStringValue(key + "\\" + "InstallPath", null);
@@ -509,6 +515,46 @@ namespace JupyterKernelManager
         public KernelClient CreateClient()
         {
             return new KernelClient(this, ChannelFactory, true, Logger);
+        }
+
+        /// <summary>
+        /// Creates a kernel client and waits for some confirmation that we are connected.
+        /// Retry creating the client if there is a hiccup.
+        /// </summary>
+        /// <param name="retries">Number of retries to establish a client connection</param>
+        /// <param name="timeout">Number of seconds to wait before retrying</param>
+        /// <returns>The KernelClient if connected, null if there was an error</returns>
+        public KernelClient CreateClientAndWaitForConnection(uint retries = 3, uint timeout = 10)
+        {
+            Logger.Write("Creating client");
+            var client = CreateClient();
+
+            uint retryCounter = 1;
+            double sleepCounter = 0.0;
+            while (!client.IsKernelConnected)
+            {
+                if (sleepCounter >= timeout)
+                {
+                    Logger.Write("Stopping client");
+                    client.StopChannels();
+                    client = null;
+
+                    Logger.Write("Recreating client to retry");
+                    client = CreateClient();
+                    sleepCounter = 0.0;
+                    retryCounter++;
+                }
+
+                if (retryCounter >= retries)
+                {
+                    break;
+                }
+
+                Thread.Sleep(100);  // Just a little nap while we wait
+                sleepCounter += 0.1; // Increment by our sleep amount (0.1 second)
+            }
+
+            return client;
         }
     }
 }
