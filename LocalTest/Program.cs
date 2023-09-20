@@ -41,12 +41,12 @@ namespace LocalTest
             // Multiple iterations to help with testing for intermittent errors
             for (int counter = 0; counter < 50; counter++)
             {
-                //RunKernel("ir", new string[]
-                //{
-                //    "x <- 100; x",
-                //    "y <- 25",
-                //    "x + y"
-                //});
+                RunKernel("ir", new string[]
+                {
+                    "x <- 100; x",
+                    "y <- 25",
+                    "x + y"
+                });
                 //RunKernel("matlab", new string[]
                 //{
                 //    "x = 100; disp(x)",
@@ -67,8 +67,9 @@ namespace LocalTest
             Console.WriteLine("{0} Kernel", name);
             using (var kernelManager = new KernelManager(name, new ConsoleLogger()))
             {
+                kernelManager.Debug = true;
                 kernelManager.StartKernel();
-                using (var client = kernelManager.CreateClient())
+                using (var client = kernelManager.CreateClientAndWaitForConnection(3, 5))
                 {
 
                     foreach (var block in code)
