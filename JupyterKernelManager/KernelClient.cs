@@ -263,7 +263,7 @@ namespace JupyterKernelManager
                     // From the message, check to see if it is related to an execute request.  If so, we need to track
                     // that a response is back.
                     var messageType = nextMessage.Header.MessageType;
-                    bool isExecuteReply = messageType.Equals(MessageType.ExecuteReply);
+                    bool isExecuteReply = messageType.Equals(MessageType.ExecuteReply) || messageType.Equals(MessageType.Error);
                     bool hasData = nextMessage.IsDataMessageType();
                     if (isExecuteReply || hasData)
                     {
@@ -283,8 +283,23 @@ namespace JupyterKernelManager
                                 // If we have an execution reply, we can get the execution index from the message
                                 if (isExecuteReply)
                                 {
-                                    ExecuteLog[messageId].Complete = true;
-                                    ExecuteLog[messageId].ExecutionIndex = nextMessage.Content.execution_count;
+                                    var status = nextMessage.Content.status;
+                                    if (status == ExecuteStatus.Ok)
+                                    {
+                                        ExecuteLog[messageId].Complete = true;
+                                        ExecuteLog[messageId].ExecutionIndex = nextMessage.Content.execution_count;
+                                    }
+                                    else if (status == ExecuteStatus.Abort || status == ExecuteStatus.Aborted)
+                                    {
+                                        ExecuteLog[messageId].Complete = false;
+                                        ExecuteLog[messageId].Abandoned = true;
+                                    }
+                                    else
+                                    {
+                                        ExecuteLog[messageId].Error = true;
+                                        ExecuteLog[messageId].Complete = true; // It's still "complete", but likely an error
+                                        ExecuteLog[messageId].ExecutionIndex = nextMessage.Content.execution_count ?? -1;
+                                    }
                                 }
                             }
                         }
@@ -486,11 +501,10 @@ namespace JupyterKernelManager
             get
             {
                 // This KernelClient was created by a KernelManager, and so
-                // we can ask the parent KernelManager.  If it's not alive, we can
-                // stop already.
-                if (Parent != null && !Parent.IsAlive)
+                // we can ask the parent KernelManager.
+                if (Parent != null)
                 {
-                    return false;
+                    return Parent.IsAlive;
                 }
 
                 // Next, check to see if the heartbeat is there.

@@ -73,8 +73,9 @@ namespace JupyterKernelManager
                 lock (syncObj)
                 {
                     Logger.Write("Sending heartbeat");
-                    var startTime = DateTime.UtcNow;
                     this.Socket.SendFrame(HeartbeatMessage);
+                    var startTime = DateTime.UtcNow;
+                    Thread.Sleep(TimeToDead);
                     while (!Receive())
                     {
                         var now = DateTime.UtcNow;

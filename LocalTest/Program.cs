@@ -45,7 +45,10 @@ namespace LocalTest
                 {
                     "x <- 100; x",
                     "y <- 25",
-                    "x + y"
+                    "x + y",
+                    "library(tableone)",
+                    "Sys.sleep(5)",
+                    "x * y"
                 });
                 //RunKernel("matlab", new string[]
                 //{
@@ -57,6 +60,8 @@ namespace LocalTest
                 {
                     "x = 100; print(x)",
                     "y = 25;",
+                    "print(y)",
+                    "import time\r\ntime.sleep(5)\r\nprint(x * y)",
                     "print(x + y)"
                 });
             }
@@ -71,15 +76,22 @@ namespace LocalTest
                 kernelManager.StartKernel();
                 using (var client = kernelManager.CreateClientAndWaitForConnection(3, 5))
                 {
-
                     foreach (var block in code)
                     {
+                        Console.WriteLine("Sending code block...");
                         client.Execute(block);
-                    }
+                        Console.WriteLine("Code block sent");
+                        while (client.HasPendingExecute() && client.IsAlive)
+                        {
+                            Console.WriteLine("... Waiting ...");
+                            Pause();
+                        }
 
-                    while (client.HasPendingExecute() && client.IsAlive)
-                    {
-                        Pause();
+                        if (client.HasExecuteError())
+                        {
+                            Console.WriteLine("*** THERE WAS AN ERROR DURING EXECUTION - Stopping further execution");
+                            break;
+                        }
                     }
 
                     // Now echo out everything we did
@@ -93,6 +105,12 @@ namespace LocalTest
                         if (entry.Abandoned)
                         {
                             Console.WriteLine("  !! This code had to be abandoned !!");
+                        }
+                        else if (entry.Error)
+                        {
+                            var errorResponse = entry.Response.FirstOrDefault(
+                                x => x.Header.MessageType.Equals(MessageType.Error));
+                            Console.WriteLine(errorResponse.Content);
                         }
                         else
                         {

@@ -19,13 +19,17 @@ namespace JupyterKernelManager
         public const string Stream = "stream";
         public const string ShutdownRequest = "shutdown_request";
         public const string ShutdownReply = "shutdown_reply";
+        public const string Error = "error";
     }
 
     public class ExecuteStatus
     {
         public const string Ok = "ok";
         public const string Error = "error";
+        // The specification documents have both said 'abort' and 'aborted'.  To be safe
+        // we are including both and will check both.
         public const string Abort = "abort";
+        public const string Aborted = "aborted";
     }
 
     public class ChannelNames

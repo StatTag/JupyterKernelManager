@@ -10,6 +10,8 @@ namespace JupyterKernelManager
     {
         public bool Complete { get; set; }
         public bool Abandoned { get; set; }
+
+        public bool Error { get; set; }
         public int ExecutionIndex { get; set; }
         public Message Request { get; set; }
         public List<Message> Response { get; set; }
@@ -18,6 +20,9 @@ namespace JupyterKernelManager
         {
             ExecutionIndex = -1;
             Response = new List<Message>();
+            Complete = false;
+            Error = false;
+            Abandoned = false;
         }
     }
 }
