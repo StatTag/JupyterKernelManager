@@ -46,7 +46,7 @@ namespace LocalTest
                     "x <- 100; x",
                     "y <- 25",
                     "x + y",
-                    "library(tableone)",
+                    "library(base)",
                     "Sys.sleep(5)",
                     "x * y"
                 });
