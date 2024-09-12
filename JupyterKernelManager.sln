@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.6.33829.357
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.34931.43
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "JupyterKernelManager", "JupyterKernelManager\JupyterKernelManager.csproj", "{EADC745A-47DD-4354-A387-06591DEBB797}"
 EndProject
@@ -12,21 +12,31 @@ EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
+		Debug|x86 = Debug|x86
 		Release|Any CPU = Release|Any CPU
+		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{EADC745A-47DD-4354-A387-06591DEBB797}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{EADC745A-47DD-4354-A387-06591DEBB797}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EADC745A-47DD-4354-A387-06591DEBB797}.Debug|x86.ActiveCfg = Debug|x86
+		{EADC745A-47DD-4354-A387-06591DEBB797}.Debug|x86.Build.0 = Debug|x86
 		{EADC745A-47DD-4354-A387-06591DEBB797}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EADC745A-47DD-4354-A387-06591DEBB797}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EADC745A-47DD-4354-A387-06591DEBB797}.Release|x86.ActiveCfg = Release|x86
+		{EADC745A-47DD-4354-A387-06591DEBB797}.Release|x86.Build.0 = Release|x86
 		{B36AA8DA-49D0-4158-9E0C-55F770476280}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{B36AA8DA-49D0-4158-9E0C-55F770476280}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B36AA8DA-49D0-4158-9E0C-55F770476280}.Debug|x86.ActiveCfg = Debug|x86
+		{B36AA8DA-49D0-4158-9E0C-55F770476280}.Debug|x86.Build.0 = Debug|x86
 		{B36AA8DA-49D0-4158-9E0C-55F770476280}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{B36AA8DA-49D0-4158-9E0C-55F770476280}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B36AA8DA-49D0-4158-9E0C-55F770476280}.Release|x86.ActiveCfg = Release|x86
 		{3DA6C89F-EC60-4F4B-BA39-9803E0C5163B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{3DA6C89F-EC60-4F4B-BA39-9803E0C5163B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3DA6C89F-EC60-4F4B-BA39-9803E0C5163B}.Debug|x86.ActiveCfg = Debug|x86
+		{3DA6C89F-EC60-4F4B-BA39-9803E0C5163B}.Debug|x86.Build.0 = Debug|x86
 		{3DA6C89F-EC60-4F4B-BA39-9803E0C5163B}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{3DA6C89F-EC60-4F4B-BA39-9803E0C5163B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3DA6C89F-EC60-4F4B-BA39-9803E0C5163B}.Release|x86.ActiveCfg = Release|x86
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
